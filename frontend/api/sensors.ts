@@ -4,47 +4,111 @@ import Papa from "papaparse";
 //   GET /api/sensors             … 全期間
 //   GET /api/sensors?date=YYYY-MM-DD … 指定日（日本時間）のみ
 
+// GPS情報
+type SensorPosition = {
+  latitude: number | null;
+  longitude: number | null;
+  latitudeDMS: string | null;
+  longitudeDMS: string | null;
+};
+
+type PositionKey = "salinity" | "DO01" | "DO02" | "DO03";
+
 type SensorRecord = {
   datetime: string; // 日本時間 "YYYY-MM-DDTHH:mm:00"
+
   waterTemp: number | null;
   outsideTemp: number | null;
   salinity: number | null;
+
   oxygen1: number | null;
   oxygen2: number | null;
   oxygen3: number | null;
+
+  // センサごとの位置
+  positions: Record<PositionKey, SensorPosition>;
 };
 
-type ValueKey = Exclude<keyof SensorRecord, "datetime">;
+type ValueKey = Exclude<keyof SensorRecord, "datetime" | "positions">;
 
 const SLOT_MS = 30 * 60 * 1000; // 30分
 
 // 元APIごとの設定：CSVの何列目をどの項目に入れるか
-const SOURCES: { name: string; url: string | undefined; columns: Partial<Record<ValueKey, number>> }[] = [
+const SOURCES: {
+  name: string;
+  url: string | undefined;
+  columns: Partial<Record<ValueKey, number>>;
+  positionKey: PositionKey;
+}[] = [
   {
     name: "salinity",
     url: process.env.SALINITY_API_URL,
     columns: { outsideTemp: 3, waterTemp: 4, salinity: 6 },
+    positionKey: "salinity",
   },
 
   {
     name: "do1",
     url: process.env.DO1_API_URL,
     columns: { oxygen1: 6 },
+    positionKey: "DO01",
   },
 
-  // DO2号機のAPIができたら、ここに追加する
   {
     name: "do2",
     url: process.env.DO2_API_URL,
     columns: { oxygen2: 6 },
+    positionKey: "DO02",
   },
 
   {
     name: "do3",
     url: process.env.DO3_API_URL,
     columns: { oxygen3: 6 },
+    positionKey: "DO03",
   },
 ];
+
+// GPS計算（CSVの7・8・9列目の値から、緯度・経度を求める）
+function convertGPS(a: number, b: number, c: number) {
+  // 小数第2位までの値を整数にする（Math.floor だと、浮動小数点の誤差で1小さくなることがあるため round を使う）
+  const value = Math.round(a * 100);
+
+  // 256で割った商 → 緯度の度
+  const latitudeDegree = Math.floor(value / 256);
+
+  // 256で割った余り → 経度の度
+  const longitudeDegree = value % 256;
+
+  // 緯度の分
+  const latitudeMinute = b / 10;
+
+  // 経度の分
+  const longitudeMinute = c / 10;
+
+  // 10進数
+  const latitudeDecimal = latitudeDegree + latitudeMinute / 60;
+  const longitudeDecimal = longitudeDegree + longitudeMinute / 60;
+
+  // 60進数
+  const latitudeDMS = `${latitudeDegree}°${latitudeMinute.toFixed(3)}'N`;
+  const longitudeDMS = `${longitudeDegree}°${longitudeMinute.toFixed(3)}'E`;
+
+  return {
+    latitudeDecimal,
+    longitudeDecimal,
+    latitudeDMS,
+    longitudeDMS,
+  };
+}
+
+// 空のGPSデータ
+const emptyPosition = (): SensorPosition => ({
+  latitude: null,
+  longitude: null,
+  latitudeDMS: null,
+  longitudeDMS: null,
+});
 
 // UTCの日時文字列 → 日本時間 "YYYY-MM-DDTHH:mm:00"（分単位で揃えて、センサ間の秒ずれを吸収）
 const toJstKey = (value: string) => {
@@ -67,7 +131,7 @@ const fetchWithRetry = async (url: string, retries = 1) => {
     try {
       return await fetch(url, {
         headers: { "User-Agent": "api_test/1.0" },
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(30_000), // 30秒で打ち切り
       });
     } catch (error) {
       if (attempt >= retries) throw error;
@@ -121,7 +185,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   results.forEach((result, i) => {
     const source = activeSources[i];
 
-
     if (result.status === "rejected") {
       console.error(`${source.name} の取得に失敗しました:`, result.reason);
       failedSources.push(source.name);
@@ -139,18 +202,44 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       if (!record) {
         record = {
           datetime: key,
+
           waterTemp: null,
           outsideTemp: null,
           salinity: null,
+
           oxygen1: null,
           oxygen2: null,
           oxygen3: null,
+
+          positions: {
+            salinity: emptyPosition(),
+            DO01: emptyPosition(),
+            DO02: emptyPosition(),
+            DO03: emptyPosition(),
+          },
         };
         records.set(key, record);
       }
 
+      // 水温・塩分・DOなどの値
       for (const [field, column] of Object.entries(source.columns)) {
         record[field as ValueKey] = toNumber(row[column as number]);
+      }
+
+      // GPS（7・8・9列目）
+      const a = toNumber(row[7]);
+      const b = toNumber(row[8]);
+      const c = toNumber(row[9]);
+
+      if (a !== null && b !== null && c !== null) {
+        const gps = convertGPS(a, b, c);
+
+        record.positions[source.positionKey] = {
+          latitude: gps.latitudeDecimal,
+          longitude: gps.longitudeDecimal,
+          latitudeDMS: gps.latitudeDMS,
+          longitudeDMS: gps.longitudeDMS,
+        };
       }
     }
   });
@@ -178,7 +267,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     // 過去の日付はもう変わらないので、長めに保存（10分）
     sMaxAge = 600;
   } else {
-    // 今の30分枠のデータが、使っている全センサ分そろっているか
+    // 今の30分枠のデータが、使っている全センサ分そろっているか（GPSは判定に含めない）
     const requiredFields = activeSources.flatMap(
       (source) => Object.keys(source.columns) as ValueKey[]
     );
