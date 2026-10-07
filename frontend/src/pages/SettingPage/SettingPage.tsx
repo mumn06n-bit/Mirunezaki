@@ -19,7 +19,7 @@ export default function SettingPage() {
     const savedTemperature = localStorage.getItem("temperature");
     const savedSalinity = localStorage.getItem("salinity");
     const savedOxygen = localStorage.getItem("oxygen");
-    const selectedSensor = location.state?.selectedSensor;
+
     if (savedDosensor) {
       setDoSensor(savedDosensor);
     }
