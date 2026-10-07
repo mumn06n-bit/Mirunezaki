@@ -16,6 +16,8 @@ type SensorRecord = {
 
 type ValueKey = Exclude<keyof SensorRecord, "datetime">;
 
+const SLOT_MS = 30 * 60 * 1000; // 30分
+
 // 元APIごとの設定：CSVの何列目をどの項目に入れるか
 const SOURCES: { name: string; url: string | undefined; columns: Partial<Record<ValueKey, number>> }[] = [
   {
@@ -59,11 +61,23 @@ const toNumber = (value: string | undefined) => {
   return Number.isFinite(num) ? num : null;
 };
 
+// 接続エラー（通信自体の失敗）のときだけ、もう一度試す
+const fetchWithRetry = async (url: string, retries = 1) => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, {
+        headers: { "User-Agent": "api_test/1.0" },
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      if (attempt >= retries) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+};
+
 const fetchCsvRows = async (url: string) => {
-  const apiResponse = await fetch(url, {
-    headers: { "User-Agent": "api_test/1.0" },
-    signal: AbortSignal.timeout(30_000), // 30秒で打ち切り
-  });
+  const apiResponse = await fetchWithRetry(url);
 
   if (!apiResponse.ok) {
     throw new Error(`upstream status ${apiResponse.status}`);
@@ -85,7 +99,6 @@ type ApiResponse = {
 };
 
 export default async function handler(request: ApiRequest, response: ApiResponse) {
-  const SLOT_MS = 30 * 60 * 1000; // 30分（ファイルの上のほうに追加）
   // エラーのときもブラウザが読めるように、CORSヘッダーは最初に付ける
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET");
