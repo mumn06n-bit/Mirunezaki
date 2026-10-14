@@ -6,7 +6,7 @@ import ComparePage from "./pages/ComparePage/ComparePage";
 import SettingsPage from "./pages/SettingPage/SettingPage";
 import CalendarPage from "./pages/DataPage/Calendar";//カレンダー
 import CompareSettingPage from "./pages/ComparePage/CompareSetting"
-
+import MapPage from "./pages/SettingPage/map";//マップ用ページ 
 import BottomNavigation from "./components/BottomNavigation";
 
 //画面遷移の設定
@@ -26,6 +26,8 @@ function App() {
         {/* 比較設定画面への遷移 */}
         <Route path="/compare-setting" element={<CompareSettingPage />}/>
         <Route path="/settings" element={<SettingsPage />} />
+
+        <Route path="/sensor-map" element={<MapPage />} />
       </Routes>
 
       <BottomNavigation />

@@ -1,8 +1,9 @@
+
 import Papa from "papaparse";
 
-// 塩分センサ・DOセンサの元APIをまとめて取得し、日時ごとに1つのJSONへ統合して返す
-//   GET /api/sensors             … 全期間
-//   GET /api/sensors?date=YYYY-MM-DD … 指定日（日本時間）のみ
+// GET /api/sensors                         … 全期間のセンサーデータ
+// GET /api/sensors?date=YYYY-MM-DD         … 指定日のデータ
+// GET /api/sensors?positionsOnly=1         … センサーごとの最新位置だけ
 
 // GPS情報
 type SensorPosition = {
@@ -31,7 +32,7 @@ type SensorRecord = {
 
 type ValueKey = Exclude<keyof SensorRecord, "datetime" | "positions">;
 
-const SLOT_MS = 30 * 60 * 1000; // 30分
+const SLOT_MS = 30 * 60 * 1000;
 
 // 元APIごとの設定：CSVの何列目をどの項目に入れるか
 const SOURCES: {
@@ -46,7 +47,6 @@ const SOURCES: {
     columns: { outsideTemp: 3, waterTemp: 4, salinity: 6 },
     positionKey: "salinity",
   },
-
   {
     name: "do1",
     url: process.env.DO1_API_URL,
@@ -60,7 +60,6 @@ const SOURCES: {
     columns: { oxygen2: 6 },
     positionKey: "DO02",
   },
-
   {
     name: "do3",
     url: process.env.DO3_API_URL,
@@ -69,40 +68,26 @@ const SOURCES: {
   },
 ];
 
-// GPS計算（CSVの7・8・9列目の値から、緯度・経度を求める）
 function convertGPS(a: number, b: number, c: number) {
-  // 小数第2位までの値を整数にする（Math.floor だと、浮動小数点の誤差で1小さくなることがあるため round を使う）
   const value = Math.round(a * 100);
 
-  // 256で割った商 → 緯度の度
   const latitudeDegree = Math.floor(value / 256);
-
-  // 256で割った余り → 経度の度
   const longitudeDegree = value % 256;
 
-  // 緯度の分
   const latitudeMinute = b / 10;
-
-  // 経度の分
   const longitudeMinute = c / 10;
 
-  // 10進数
   const latitudeDecimal = latitudeDegree + latitudeMinute / 60;
   const longitudeDecimal = longitudeDegree + longitudeMinute / 60;
-
-  // 60進数
-  const latitudeDMS = `${latitudeDegree}°${latitudeMinute.toFixed(3)}'N`;
-  const longitudeDMS = `${longitudeDegree}°${longitudeMinute.toFixed(3)}'E`;
 
   return {
     latitudeDecimal,
     longitudeDecimal,
-    latitudeDMS,
-    longitudeDMS,
+    latitudeDMS: `${latitudeDegree}°${latitudeMinute.toFixed(3)}'N`,
+    longitudeDMS: `${longitudeDegree}°${longitudeMinute.toFixed(3)}'E`,
   };
 }
 
-// 空のGPSデータ
 const emptyPosition = (): SensorPosition => ({
   latitude: null,
   longitude: null,
@@ -125,7 +110,6 @@ const toNumber = (value: string | undefined) => {
   return Number.isFinite(num) ? num : null;
 };
 
-// 接続エラー（通信自体の失敗）のときだけ、もう一度試す
 const fetchWithRetry = async (url: string, retries = 1) => {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -151,34 +135,39 @@ const fetchCsvRows = async (url: string) => {
     header: false,
     skipEmptyLines: true,
   });
+
   return parsed.data;
 };
 
-// Vercel の request / response のうち、ここで使う部分だけの型
-type ApiRequest = { query?: Record<string, string | string[] | undefined> };
+type ApiRequest = {
+  query?: Record<string, string | string[] | undefined>;
+};
+
 type ApiResponse = {
   status(code: number): ApiResponse;
   json(body: unknown): ApiResponse;
   setHeader(name: string, value: string): void;
 };
 
-export default async function handler(request: ApiRequest, response: ApiResponse) {
-  // エラーのときもブラウザが読めるように、CORSヘッダーは最初に付ける
+export default async function handler(
+  request: ApiRequest,
+  response: ApiResponse
+) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET");
 
   const dateParam = request.query?.date;
   const date = typeof dateParam === "string" ? dateParam : undefined;
 
-  // URLが設定されている元APIだけを対象にする（未設定のDO2は無視する）
+  const positionsOnlyParam = request.query?.positionsOnly;
+  const positionsOnly = positionsOnlyParam === "1";
+
   const activeSources = SOURCES.filter((source) => source.url);
 
-  // 全ての元APIを並列で取得（1つ失敗しても他のデータは返す）
   const results = await Promise.allSettled(
     activeSources.map((source) => fetchCsvRows(source.url as string))
   );
 
-  // 日時をキーにして統合
   const records = new Map<string, SensorRecord>();
   const failedSources: string[] = [];
 
@@ -195,10 +184,11 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       if (!row[1]) continue;
 
       const key = toJstKey(row[1]);
-      if (!key) continue; // ヘッダー行など
+      if (!key) continue;
       if (date && !key.startsWith(date)) continue;
 
       let record = records.get(key);
+
       if (!record) {
         record = {
           datetime: key,
@@ -218,6 +208,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
             DO03: emptyPosition(),
           },
         };
+
         records.set(key, record);
       }
 
@@ -244,46 +235,103 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     }
   });
 
-  // 全部失敗したらエラー
   if (results.every((result) => result.status === "rejected")) {
-    return response.status(502).json({ error: "元APIからのデータ取得に失敗しました。" });
+    return response.status(502).json({
+      error: "元APIからのデータ取得に失敗しました。",
+    });
   }
 
-  const body = [...records.values()].sort((a, b) => a.datetime.localeCompare(b.datetime));
+  const body = [...records.values()].sort((a, b) =>
+    a.datetime.localeCompare(b.datetime)
+  );
 
-  // ここから、Cache-Control を決める処理
   const now = Date.now();
-  const slotStart = Math.floor(now / SLOT_MS) * SLOT_MS; // 今の30分枠の開始時刻
+  const slotStart = Math.floor(now / SLOT_MS) * SLOT_MS;
   const currentSlotKey = toJstKey(new Date(slotStart).toISOString());
   const todayJst = currentSlotKey?.slice(0, 10);
 
   let sMaxAge: number;
 
   if (failedSources.length > 0) {
-    // 一部の取得に失敗したときは、すぐ取り直せるように短く
     response.setHeader("X-Failed-Sources", failedSources.join(","));
     sMaxAge = 10;
   } else if (date && todayJst && date < todayJst) {
-    // 過去の日付はもう変わらないので、長めに保存（10分）
     sMaxAge = 600;
   } else {
     // 今の30分枠のデータが、使っている全センサ分そろっているか（GPSは判定に含めない）
     const requiredFields = activeSources.flatMap(
       (source) => Object.keys(source.columns) as ValueKey[]
     );
-    const current = currentSlotKey ? records.get(currentSlotKey) : undefined;
-    const isComplete = !!current && requiredFields.every((field) => current[field] !== null);
+
+    const current = currentSlotKey
+      ? records.get(currentSlotKey)
+      : undefined;
+
+    const isComplete =
+      !!current &&
+      requiredFields.every((field) => current[field] !== null);
 
     if (isComplete) {
-      // 次の30分枠が始まるまで保存（+5秒の余裕）
       sMaxAge = Math.ceil((slotStart + SLOT_MS - now) / 1000) + 5;
     } else {
-      // まだそろっていないので、30秒ごとに取り直す
       sMaxAge = 30;
     }
   }
 
   response.setHeader("Cache-Control", `s-maxage=${sMaxAge}`);
 
+  // 地図用：センサーごとに最新の有効な位置だけを返す
+  if (positionsOnly) {
+    const positionKeys: PositionKey[] = [
+      "salinity",
+      "DO01",
+      "DO02",
+      "DO03",
+    ];
+
+    const latestPositions: Record<PositionKey, SensorPosition> = {
+      salinity: emptyPosition(),
+      DO01: emptyPosition(),
+      DO02: emptyPosition(),
+      DO03: emptyPosition(),
+    };
+
+    const latestTimes: Partial<Record<PositionKey, string>> = {};
+
+    // 新しい日時から確認し、センサーごとに最初の有効な位置を採用
+    for (const record of [...body].reverse()) {
+      for (const key of positionKeys) {
+        if (latestTimes[key]) continue;
+
+        const position = record.positions[key];
+
+        if (
+          position.latitude !== null &&
+          position.longitude !== null &&
+          position.latitudeDMS !== null &&
+          position.longitudeDMS !== null
+        ) {
+          latestPositions[key] = position;
+          latestTimes[key] = record.datetime;
+        }
+      }
+
+      if (positionKeys.every((key) => latestTimes[key])) break;
+    }
+
+    const latestDatetime =
+      Object.values(latestTimes)
+        .filter((value): value is string => value !== undefined)
+        .sort()
+        .at(-1) ?? null;
+
+    return response.status(200).json({
+      positions: latestPositions,
+      datetime: latestDatetime,
+      positionDatetimes: latestTimes,
+    });
+  }
+
+  // 既存の呼び出しには従来どおり全データを返す
   return response.status(200).json(body);
 }
