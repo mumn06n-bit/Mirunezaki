@@ -5,15 +5,6 @@ import Papa from "papaparse";
 // GET /api/sensors?date=YYYY-MM-DD         … 指定日のデータ
 // GET /api/sensors?positionsOnly=1         … センサーごとの最新位置だけ
 
-type SensorPosition = {
-  latitude: number | null;
-  longitude: number | null;
-  latitudeDMS: string | null;
-  longitudeDMS: string | null;
-};
-
-type PositionKey = "salinity" | "DO01" | "DO02" | "DO03";
-
 // GPS情報
 type SensorPosition = {
   latitude: number | null;
