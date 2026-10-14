@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CompareSetting.css";
 import PageLayout from "@/components/PageLayout";
+import type { CompareSettings, SensorKey } from "./compareData";
 
 export default function CompareSettingPage() {
 
@@ -9,32 +10,34 @@ export default function CompareSettingPage() {
   const navigate = useNavigate();
 
   // 相関モード
-  const [correlationMode, setCorrelationMode] = useState(false);
+  const [correlationMode, setCorrelationMode] = useState<boolean>(false);
 
   // 種類
-  const [sensorType, setSensorType] = useState("water");
-  const [correlationSensors, setCorrelationSensors] = useState<string[]>([]);
+  const [sensorType, setSensorType] = useState<SensorKey>("water");
+  const [correlationSensors, setCorrelationSensors] = useState<SensorKey[]>([]);
 
   // グラフ期間
-  const [graphPeriod, setGraphPeriod] = useState("month");
+  const [graphPeriod, setGraphPeriod] =
+    useState<CompareSettings["graphPeriod"]>("month");
 
   // 比較期間
-  const [periods, setPeriods] = useState([
-    {
-      id: 1,
-      color: "#ff6b6b",
-      year: 2026,
-      month: 5,
-      day: 1,
-    },
-    {
-      id: 2,
-      color: "#6ba8ff",
-      year: 2026,
-      month: 6,
-      day: 1,
-    },
-  ]);
+  const [periods, setPeriods] =
+    useState<CompareSettings["periods"]>([
+      {
+        id: 1,
+        color: "#ff6b6b",
+        year: 2026,
+        month: 5,
+        day: 1,
+      },
+      {
+        id: 2,
+        color: "#6ba8ff",
+        year: 2026,
+        month: 6,
+        day: 1,
+      },
+    ]);
 
   // 期間の色
   const colors = [
@@ -52,14 +55,17 @@ export default function CompareSettingPage() {
 
     if (!saved) return;
 
-    const settings = JSON.parse(saved);
+    try {
+      const settings: CompareSettings = JSON.parse(saved);
 
-    setCorrelationMode(settings.correlationMode);
-    setSensorType(settings.sensorType);
-    setCorrelationSensors(settings.correlationSensors
-      ?? []);
-    setGraphPeriod(settings.graphPeriod);
-    setPeriods(settings.periods);
+      setCorrelationMode(settings.correlationMode);
+      setSensorType(settings.sensorType);
+      setCorrelationSensors(settings.correlationSensors ?? []);
+      setGraphPeriod(settings.graphPeriod);
+      setPeriods(settings.periods);
+    } catch {
+      localStorage.removeItem("compareSettings");
+    }
 
   }, []);
 
@@ -132,33 +138,43 @@ export default function CompareSettingPage() {
   };
 
   // 重複期間の判定
-  const hasDuplicatePeriods = () => {
 
+  // 重複期間の判定
+  const hasDuplicatePeriods = () => {
     const keys = periods.map((period) => {
+      let dateKey = "";
 
       switch (graphPeriod) {
-
         case "year":
-          return `${period.year}`;
+          dateKey = `${period.year}`;
+          break;
 
         case "month":
-          return `${period.year}-${period.month}`;
+          dateKey = `${period.year}-${period.month}`;
+          break;
 
         case "day":
-          return `${period.year}-${period.month}-${period.day}`;
-
-        default:
-          return "";
+          dateKey = `${period.year}-${period.month}-${period.day}`;
+          break;
       }
 
+      // 溶存酸素の場合は日付とDO番号の両方で判定
+      if (!correlationMode && sensorType === "oxygen") {
+        const oxygenSensor = period.oxygenSensor ?? "oxygen1";
+        return `${dateKey}-${oxygenSensor}`;
+      }
+
+      // それ以外は日付だけで判定
+      return dateKey;
     });
 
     return new Set(keys).size !== keys.length;
-
   };
 
+
+
   // 相関モードでの種類選択
-  const toggleCorrelationSensor = (sensor: string) => {
+  const toggleCorrelationSensor = (sensor: SensorKey) => {
 
     // 既に選択されている場合
     if (correlationSensors.includes(sensor)) {
@@ -200,16 +216,14 @@ export default function CompareSettingPage() {
       alert("期間が重複しています。");
       return;
     }
-　
-    // 設定を保存
-    const settings = {
 
+    // 設定を保存
+    const settings: CompareSettings = {
       correlationMode,
       sensorType,
       correlationSensors,
       graphPeriod,
       periods,
-
     };
 
     // localStorageに保存
@@ -262,7 +276,7 @@ export default function CompareSettingPage() {
                   value="air"
                   checked={sensorType === "air"}
                   onChange={(e) =>
-                    setSensorType(e.target.value)
+                    setSensorType(e.target.value as SensorKey)
                   }
                 />
                 気温
@@ -275,7 +289,7 @@ export default function CompareSettingPage() {
                   value="water"
                   checked={sensorType === "water"}
                   onChange={(e) =>
-                    setSensorType(e.target.value)
+                    setSensorType(e.target.value as SensorKey)
                   }
                 />
                 水温
@@ -288,7 +302,7 @@ export default function CompareSettingPage() {
                   value="salt"
                   checked={sensorType === "salt"}
                   onChange={(e) =>
-                    setSensorType(e.target.value)
+                    setSensorType(e.target.value as SensorKey)
                   }
                 />
                 塩分濃度
@@ -301,19 +315,13 @@ export default function CompareSettingPage() {
                   value="oxygen"
                   checked={sensorType === "oxygen"}
                   onChange={(e) =>
-                    setSensorType(e.target.value)
+                    setSensorType(e.target.value as SensorKey)
                   }
                 />
                 溶存酸素
               </label>
 
             </div>
-
-            {correlationMode && correlationSensors.length < 2 && (
-              <p className="error-message">
-                種類が足りません
-              </p>
-            )}
 
           </div>
         )}
@@ -327,12 +335,14 @@ export default function CompareSettingPage() {
 
             <div className="radio-grid">
 
-              {[
-                { value: "air", label: "気温" },
-                { value: "water", label: "水温" },
-                { value: "salt", label: "塩分濃度" },
-                { value: "oxygen", label: "溶存酸素" },
-              ].map((sensor) => (
+              {(
+                [
+                  { value: "air", label: "気温" },
+                  { value: "water", label: "水温" },
+                  { value: "salt", label: "塩分濃度" },
+                  { value: "oxygen", label: "溶存酸素" },
+                ] satisfies { value: SensorKey; label: string }[]
+              ).map((sensor) => (
 
                 <label key={sensor.value}>
 
@@ -376,7 +386,9 @@ export default function CompareSettingPage() {
                 value="day"
                 checked={graphPeriod === "day"}
                 onChange={(e) =>
-                  setGraphPeriod(e.target.value)
+                  setGraphPeriod(
+                    e.target.value as CompareSettings["graphPeriod"]
+                  )
                 }
               />
               日
@@ -389,7 +401,9 @@ export default function CompareSettingPage() {
                 value="month"
                 checked={graphPeriod === "month"}
                 onChange={(e) =>
-                  setGraphPeriod(e.target.value)
+                  setGraphPeriod(
+                    e.target.value as CompareSettings["graphPeriod"]
+                  )
                 }
               />
               月
@@ -402,7 +416,9 @@ export default function CompareSettingPage() {
                 value="year"
                 checked={graphPeriod === "year"}
                 onChange={(e) =>
-                  setGraphPeriod(e.target.value)
+                  setGraphPeriod(
+                    e.target.value as CompareSettings["graphPeriod"]
+                  )
                 }
               />
               年
@@ -509,7 +525,36 @@ export default function CompareSettingPage() {
 
                 <span>日</span>
 
+                {!correlationMode && sensorType === "oxygen" && (
+                <div className="oxygen-select">
+                  <select
+                    value={period.oxygenSensor ?? "oxygen1"}
+                    onChange={(e) => {
+                      const oxygenSensor = e.target.value as
+                        | "oxygen1"
+                        | "oxygen2"
+                        | "oxygen3";
+
+                      setPeriods((prev) =>
+                        prev.map((item) =>
+                          item.id === period.id
+                            ? { ...item, oxygenSensor }
+                            : item
+                        )
+                      );
+                    }}
+                  >
+                    <option value="oxygen1">DO1</option>
+                    <option value="oxygen2">DO2</option>
+                    <option value="oxygen3">DO3</option>
+                  </select>
+                </div>
+              )}
+
               </div>
+
+              {/* 溶存酸素センサー */}
+              
 
               <button
                 className="delete-button"

@@ -4,10 +4,11 @@ import "./ComparePage.css";
 import PageLayout from "@/components/PageLayout";
 import CompareChart from "./CompareChart";
 import CompareScatter from "./CompareScatter";
+import type { CompareSettings } from "./compareData";
 
 export default function ComparePage() {
 
-  const [settings, setSettings] = useState<any>(null);
+ const [settings, setSettings] = useState<CompareSettings | null>(null);
 
   // 保存された設定を読み込む
   useEffect(() => {
@@ -22,10 +23,10 @@ export default function ComparePage() {
 
   }, []);
 
-  // 種類表示
+   // 種類表示
   const getSensorName = () => {
-
     if (!settings) return "";
+
     const names: { [key: string]: string } = {
       air: "気温",
       water: "水温",
@@ -36,30 +37,41 @@ export default function ComparePage() {
     // 相関モード
     if (settings.correlationMode) {
       return settings.correlationSensors
-        .map((sensor: string) => names[sensor])
+        .map((sensor) => names[sensor])
         .join(" ✖ ");
     }
 
     // 通常モード
     return names[settings.sensorType];
   };
+// DOセンサーの表示名
+const DO_NAMES = {
+  oxygen1: "DO1",
+  oxygen2: "DO2",
+  oxygen3: "DO3",
+};
 
-  // 期間表示
-  const getPeriodText = (period: any) => {
+// 期間表示（溶存酸素のときは DO センサー名も付ける）
+const getPeriodText = (period: CompareSettings["periods"][number]) => {
+  if (!settings) return "";
 
-    if (!settings) return "";
-    switch (settings.graphPeriod) {
-      case "year":
-        return `${period.year}`;
-      case "month":
-        return `${period.year}/${String(period.month).padStart(2, "0")}`;
-      case "day":
-        return `${period.year}/${String(period.month).padStart(2, "0")}/${String(period.day).padStart(2, "0")}`;
-      default:
-        return "";
-    }
-  };
+  const month = String(period.month).padStart(2, "0");
+  const day = String(period.day).padStart(2, "0");
 
+  const dateText =
+    settings.graphPeriod === "year"
+      ? `${period.year}`
+      : settings.graphPeriod === "month"
+        ? `${period.year}/${month}`
+        : `${period.year}/${month}/${day}`;
+
+  // 相関モードでない溶存酸素のときだけ、DO センサー名を付ける
+  if (!settings.correlationMode && settings.sensorType === "oxygen") {
+    return `${dateText} (${DO_NAMES[period.oxygenSensor ?? "oxygen1"]})`;
+  }
+
+  return dateText;
+};
   return (
 
     <PageLayout title="比較">
@@ -94,7 +106,7 @@ export default function ComparePage() {
         {/* 下段*/}
         <div className="compare-period">
 
-          {settings?.periods.map((period: any) => (
+          {settings?.periods.map((period) => (
 
             <div
               key={period.id}
@@ -104,6 +116,8 @@ export default function ComparePage() {
               }}
             >
               {getPeriodText(period)}
+              
+
             </div>
 
           ))}
@@ -112,12 +126,6 @@ export default function ComparePage() {
 
       </section>
 
-      {/* ダミーデータのお知らせ */}
-      <div className="graph-notice">
-        <div className="graph-notice-text">
-          ⚠ こちらのデータはダミーデータです。本物のデータに切り替え次第、お知らせします。  
-        </div>
-      </div>
 
       {/* グラフ表示エリア */}
       <section className="compare-area">

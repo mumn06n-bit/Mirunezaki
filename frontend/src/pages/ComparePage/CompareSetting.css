@@ -125,12 +125,14 @@
 
 /* 期間カード */
 .period-card {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
     background: #f5f5f5;
     padding: 10px;
     margin-bottom: 10px;
+    padding-right: 40px; 
 }
 
 /* 色丸 */
@@ -152,12 +154,21 @@
 
 /* ×ボタン */
 .delete-button {
+    position: absolute; 
+    top: 4px;         
+    right: 8px;       
     border: none;
     background: none;
-    font-size: 30px;
+    font-size: 26px;    
     color: #666;
     cursor: pointer;
-    margin-right: 5px;
+    margin-right: 0;    
+    
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
 }
 
 /* ＋期間追加 */
@@ -242,4 +253,42 @@
 
     color:#666666;
 
+}
+
+.oxygen-select {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.oxygen-select label {
+    font-size: 15px;
+    color: var(--text);
+}
+
+.oxygen-select select {
+    width: 70px;
+    height: 32px;
+    font-size: 15px;
+    text-align: center;
+}
+
+/* スマホでは DO の選択を2行目に表示する */
+@media (max-width: 600px) {
+  .period-card {
+    flex-wrap: wrap;   /* 入りきらない要素を次の行へ */
+    row-gap: 8px;
+    padding-right: 40px; 
+  }
+
+  .oxygen-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .oxygen-select select {
+    flex: 1;           /* 2行目の幅いっぱいに広げる */
+  }
 }

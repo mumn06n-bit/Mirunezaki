@@ -1,87 +1,58 @@
 import { useState } from "react";
 import PageLayout from "@/components/PageLayout";
-import GraphChart from "./GraphChart.tsx";
+import GraphChart from "./GraphChart";
 import "./GraphPage.css";
+
+// データ種類ごとの単位と目標値
+const GRAPH_TYPES: Record<string, { unit: string; target: { key: string; default: number } | null }> = {
+  気温:     { unit: "℃",    target: null },
+  水温:     { unit: "℃",    target: { key: "temperature", default: 20 } },
+  塩分濃度: { unit: "‰",    target: { key: "salinity",    default: 30 } },
+  溶存酸素: { unit: "mg/L", target: { key: "oxygen",      default: 3.5 } },
+};
+
+const GRAPH_MODES = ["日", "月", "年"];
 
 export default function GraphPage() {
   const [graphType, setGraphType] = useState("水温");
   const [graphMode, setGraphMode] = useState("月");
-  const unit =
-    graphType === "気温" || graphType === "水温"
-      ? "℃"
-      : graphType === "塩分濃度"
-        ? "‰"
-        : "mg/L";
-  const targetValue =
-    graphType === "気温"
-      ? null
-      : graphType === "水温"
-        ? Number(localStorage.getItem("temperature") ?? 10)
-        : graphType === "塩分濃度"
-          ? Number(localStorage.getItem("salinity") ?? 25)
-          : Number(localStorage.getItem("oxygen") ?? 0);
-  // const changeMode = (mode: string) => {
-  //   setGraphMode(mode);
-  //   console.log(mode);
-  // };
+
+  const { unit, target } = GRAPH_TYPES[graphType];
+  const targetValue = target ? Number(localStorage.getItem(target.key) ?? target.default) : null;
+
   return (
     <PageLayout title="グラフ">
-
       {/* 画面上部のメニュー */}
       <section className="graph-menu">
         {/* データ種類 */}
         <div className="graph-select-area">
-          <select className="graph-select-button" value={graphType}
-            onChange={(e) => setGraphType(e.target.value)}>
-            <option>気温</option>
-            <option>水温</option>
-            <option>塩分濃度</option>
-            <option>溶存酸素</option>
+          <select
+            className="graph-select-button"
+            value={graphType}
+            onChange={(e) => setGraphType(e.target.value)}
+          >
+            {Object.keys(GRAPH_TYPES).map((type) => (
+              <option key={type}>{type}</option>
+            ))}
           </select>
         </div>
 
-        <section className="graph-range-area">
-          <button
-            className={`graph-range-button ${graphMode === "日" ? "active" : ""
-              }`}
-            onClick={() => setGraphMode("日")}
-          >
-            日
-          </button>
-
-          <button
-            className={`graph-range-button ${graphMode === "月" ? "active" : ""
-              }`}
-            onClick={() => setGraphMode("月")}
-          >
-            月
-          </button>
-
-          <button
-            className={`graph-range-button ${graphMode === "年" ? "active" : ""
-              }`}
-            onClick={() => setGraphMode("年")}
-          >
-            年
-          </button>
-        </section>
+        {/* 表示期間 */}
+        <div className="graph-range-area">
+          {GRAPH_MODES.map((mode) => (
+            <button
+              key={mode}
+              className={`graph-range-button ${graphMode === mode ? "active" : ""}`}
+              onClick={() => setGraphMode(mode)}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
       </section>
 
-      
-      {/* ダミーデータのお知らせ */}
-      <div className="graph-notice">
-        <div className="graph-notice-text">
-          ⚠ こちらのデータはダミーデータです。本物のデータに切り替え次第、お知らせします。  
-        </div>
-      </div>
-
       <section className="graph-area">
-        {/* グラフがここに */}
-        <GraphChart
-          graphMode={graphMode}
-          unit={unit}
-          targetValue={targetValue}
-        />
+        <GraphChart graphType={graphType} graphMode={graphMode} unit={unit} targetValue={targetValue} />
       </section>
     </PageLayout>
   );
