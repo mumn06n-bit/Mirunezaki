@@ -9,7 +9,7 @@ import PageLayout from "@/components/PageLayout";
 import {
   fetchLatestSensorPositions,
   type LatestSensorPositions,
-  type PositionKey,
+  //type PositionKey,
 } from "@/services/sensorData";
 
 import "./map.css";
