@@ -285,7 +285,7 @@ export default function CompareScatter({
         type: "value",
         name: `${getSensorNameByValue(axes.x)} [${getSensorUnit(axes.x)}]`,
         nameLocation: "middle",
-        nameGap: 25,
+        nameGap: 35,
       },
 
       yAxis: {
@@ -300,11 +300,14 @@ export default function CompareScatter({
           sensorData[period.id] ?? [];
 
         /*
-         * 日 30分ごとのデータをそのまま使用
+         * 日
+         * → 30分ごとのデータをそのまま使用
          *
-         * 月 1日ごとの平均を使用
+         * 月
+         * → 1日ごとの平均を使用
          *
-         * 年 1か月ごとの平均を使用
+         * 年
+         * → 1か月ごとの平均を使用
          */
         if (settings.graphPeriod === "month") {
           periodData =
