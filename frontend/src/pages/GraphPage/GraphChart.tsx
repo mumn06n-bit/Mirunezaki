@@ -174,24 +174,24 @@ export default function GraphChart({
         ],
     }), [graphData, xData, graphMode, xUnit, unit, targetValue, initialStartIndex, initialEndIndex]);
 
-return (
-    <div className="graph-chart">
-        {error ? (
-            <p className="graph-message">データを取得できませんでした...</p>
-        ) : isLoading ? (
-            <div className="graph-message">
-                <div className="graph-spinner" />
-                <p>データを取得中...</p>
-            </div>
-        ) : (
-            <ReactECharts 
-                key={graphMode}
-                option={option} 
-                notMerge 
-                onEvents={onEvents} 
-                style={{ width: "100%", height: "100%" }} 
-            />
-        )}
-    </div>
-);
+    return (
+        <div className="graph-chart">
+            {error ? (
+                <p className="graph-message">データを取得できませんでした...</p>
+            ) : isLoading ? (
+                <div className="graph-message">
+                    <div className="graph-spinner" />
+                    <p>データを取得中...</p>
+                </div>
+            ) : (
+                <ReactECharts
+                    key={graphMode}
+                    option={option}
+                    notMerge
+                    onEvents={onEvents}
+                    style={{ width: "100%", height: "100%" }}
+                />
+            )}
+        </div>
+    );
 }
