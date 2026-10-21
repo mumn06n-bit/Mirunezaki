@@ -30,8 +30,8 @@ const makeXAxisFormatter = (xData: string[], graphMode: string, startIndex: numb
 const NO_RECORDS: SensorRecord[] = [];
 const MODE_CONFIG: Record<string, { kind: string; xUnit: string; pc: number; sp: number }> = {
     日: { kind: "today", xUnit: "時間", pc: 24, sp: 6 },
-    月: { kind: "all",   xUnit: "日",   pc: 31, sp: 7 },
-    年: { kind: "all",   xUnit: "月",   pc: 12, sp: 12 },
+    月: { kind: "all", xUnit: "日", pc: 31, sp: 7 },
+    年: { kind: "all", xUnit: "月", pc: 12, sp: 12 },
 };
 
 type Props = {
@@ -48,9 +48,9 @@ export default function GraphChart({
     targetValue,
 }: Props) {
     const [fetched, setFetched] = useState<{ kind: string; records: SensorRecord[] }>({
-    kind: "",
-    records: NO_RECORDS,
-});
+        kind: "",
+        records: NO_RECORDS,
+    });
     const [currentDate] = useState(() => new Date());
     const [errorKind, setErrorKind] = useState<string | null>(null);
     const { kind, xUnit, pc, sp } = MODE_CONFIG[graphMode];
@@ -87,6 +87,8 @@ export default function GraphChart({
     const visibleCount = isNarrow ? sp : pc;
     // 最初に表示する範囲：日モードは最新のデータがある時刻まで、月・年モードは最後の点まで。それより前は左へスクロールして見る
     const lastDataIndex = graphData.findLastIndex((d) => d.value !== null);
+    // 値が1つも無いときはグラフ上にメッセージを出す（日モードの時だけ）
+    const hasNoData = lastDataIndex === -1;
     const initialEndIndex =
         graphMode === "日" ? Math.max(lastDataIndex, visibleCount - 1) : xData.length - 1;
     const initialStartIndex = Math.max(0, initialEndIndex - (visibleCount - 1));
@@ -121,6 +123,32 @@ export default function GraphChart({
         },
         yAxis: {
             type: "value",
+            min: graphType === "塩分濃度"
+                ? 25
+                : graphType === "溶存酸素"
+                    ? 2
+                    : hasNoData ? 0 : undefined,
+            max: graphType === "塩分濃度"
+                ? 35
+                : graphType === "溶存酸素"
+                    ? 8
+                    : hasNoData ? 30 : undefined,
+            interval: graphType === "塩分濃度"
+                ? 1
+                : graphType === "溶存酸素"
+                    ? 1
+                    : undefined,
+            splitNumber: graphType === "塩分濃度"
+                ? 10
+                : graphType === "溶存酸素"
+                    ? 6
+                    : undefined,
+            axisLabel: {
+                formatter: (value: number) =>
+                    graphType === "溶存酸素"
+                        ? value.toFixed(1)
+                        : value,
+            },
             name: `[${unit}]`,
             nameLocation: "end",
             nameTextStyle: { align: "left" },
@@ -144,7 +172,8 @@ export default function GraphChart({
                         color: "#333",
                     },
                 },
-                markLine: targetValue === null ? undefined : {
+                markLine: targetValue === null || hasNoData ? undefined : {
+                    silent: true,
                     symbol: ["none", "none"],
                     label: {
                         position: "end",
@@ -172,26 +201,39 @@ export default function GraphChart({
                 moveOnMouseWheel: false,
             },
         ],
-    }), [graphData, xData, graphMode, xUnit, unit, targetValue, initialStartIndex, initialEndIndex]);
+        graphic: hasNoData && graphMode === "日" ? [
+            {
+                type: "text",
+                left: "center",
+                top: "44%",
+                silent: true,
+                style: {
+                    text: "データがありません",
+                    fill: "#383838",
+                    fontSize: 14,
+                },
+            },
+        ] : [],
+    }), [graphData, xData, graphMode, xUnit, unit, targetValue, initialStartIndex, initialEndIndex, hasNoData]);
 
-return (
-    <div className="graph-chart">
-        {error ? (
-            <p className="graph-message">データを取得できませんでした...</p>
-        ) : isLoading ? (
-            <div className="graph-message">
-                <div className="graph-spinner" />
-                <p>データを取得中...</p>
-            </div>
-        ) : (
-            <ReactECharts 
-                key={graphMode}
-                option={option} 
-                notMerge 
-                onEvents={onEvents} 
-                style={{ width: "100%", height: "100%" }} 
-            />
-        )}
-    </div>
-);
+    return (
+        <div className="graph-chart">
+            {error ? (
+                <p className="graph-message">データを取得できませんでした...</p>
+            ) : isLoading ? (
+                <div className="graph-message">
+                    <div className="graph-spinner" />
+                    <p>データを取得中...</p>
+                </div>
+            ) : (
+                <ReactECharts
+                    key={graphMode}
+                    option={option}
+                    notMerge
+                    onEvents={onEvents}
+                    style={{ width: "100%", height: "100%" }}
+                />
+            )}
+        </div>
+    );
 }
