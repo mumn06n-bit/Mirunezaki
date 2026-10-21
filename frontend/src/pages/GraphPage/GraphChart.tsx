@@ -30,8 +30,8 @@ const makeXAxisFormatter = (xData: string[], graphMode: string, startIndex: numb
 const NO_RECORDS: SensorRecord[] = [];
 const MODE_CONFIG: Record<string, { kind: string; xUnit: string; pc: number; sp: number }> = {
     日: { kind: "today", xUnit: "時間", pc: 24, sp: 6 },
-    月: { kind: "all",   xUnit: "日",   pc: 31, sp: 7 },
-    年: { kind: "all",   xUnit: "月",   pc: 12, sp: 12 },
+    月: { kind: "all", xUnit: "日", pc: 31, sp: 7 },
+    年: { kind: "all", xUnit: "月", pc: 12, sp: 12 },
 };
 
 type Props = {
@@ -48,9 +48,9 @@ export default function GraphChart({
     targetValue,
 }: Props) {
     const [fetched, setFetched] = useState<{ kind: string; records: SensorRecord[] }>({
-    kind: "",
-    records: NO_RECORDS,
-});
+        kind: "",
+        records: NO_RECORDS,
+    });
     const [currentDate] = useState(() => new Date());
     const [errorKind, setErrorKind] = useState<string | null>(null);
     const { kind, xUnit, pc, sp } = MODE_CONFIG[graphMode];
@@ -174,24 +174,24 @@ export default function GraphChart({
         ],
     }), [graphData, xData, graphMode, xUnit, unit, targetValue, initialStartIndex, initialEndIndex]);
 
-return (
-    <div className="graph-chart">
-        {error ? (
-            <p className="graph-message">データを取得できませんでした...</p>
-        ) : isLoading ? (
-            <div className="graph-message">
-                <div className="graph-spinner" />
-                <p>データを取得中...</p>
-            </div>
-        ) : (
-            <ReactECharts 
-                key={graphMode}
-                option={option} 
-                notMerge 
-                onEvents={onEvents} 
-                style={{ width: "100%", height: "100%" }} 
-            />
-        )}
-    </div>
-);
+    return (
+        <div className="graph-chart">
+            {error ? (
+                <p className="graph-message">データを取得できませんでした...</p>
+            ) : isLoading ? (
+                <div className="graph-message">
+                    <div className="graph-spinner" />
+                    <p>データを取得中...</p>
+                </div>
+            ) : (
+                <ReactECharts
+                    key={graphMode}
+                    option={option}
+                    notMerge
+                    onEvents={onEvents}
+                    style={{ width: "100%", height: "100%" }}
+                />
+            )}
+        </div>
+    );
 }
