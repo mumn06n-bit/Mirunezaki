@@ -5,6 +5,7 @@ import Papa from "papaparse";
 // GET /api/sensors?date=YYYY-MM-DD         … 指定日のデータ
 // GET /api/sensors?positionsOnly=1         … センサーごとの最新位置だけ
 
+// GPS情報
 type SensorPosition = {
   latitude: number | null;
   longitude: number | null;
@@ -15,13 +16,17 @@ type SensorPosition = {
 type PositionKey = "salinity" | "DO01" | "DO02" | "DO03";
 
 type SensorRecord = {
-  datetime: string;
+  datetime: string; // 日本時間 "YYYY-MM-DDTHH:mm:00"
+
   waterTemp: number | null;
   outsideTemp: number | null;
   salinity: number | null;
+
   oxygen1: number | null;
   oxygen2: number | null;
   oxygen3: number | null;
+
+  // センサごとの位置
   positions: Record<PositionKey, SensorPosition>;
 };
 
@@ -29,6 +34,7 @@ type ValueKey = Exclude<keyof SensorRecord, "datetime" | "positions">;
 
 const SLOT_MS = 30 * 60 * 1000;
 
+// 元APIごとの設定：CSVの何列目をどの項目に入れるか
 const SOURCES: {
   name: string;
   url: string | undefined;
@@ -47,6 +53,7 @@ const SOURCES: {
     columns: { oxygen1: 6 },
     positionKey: "DO01",
   },
+
   {
     name: "do2",
     url: process.env.DO2_API_URL,
@@ -88,6 +95,7 @@ const emptyPosition = (): SensorPosition => ({
   longitudeDMS: null,
 });
 
+// UTCの日時文字列 → 日本時間 "YYYY-MM-DDTHH:mm:00"（分単位で揃えて、センサ間の秒ずれを吸収）
 const toJstKey = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -107,7 +115,7 @@ const fetchWithRetry = async (url: string, retries = 1) => {
     try {
       return await fetch(url, {
         headers: { "User-Agent": "api_test/1.0" },
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(30_000), // 30秒で打ち切り
       });
     } catch (error) {
       if (attempt >= retries) throw error;
@@ -184,12 +192,15 @@ export default async function handler(
       if (!record) {
         record = {
           datetime: key,
+
           waterTemp: null,
           outsideTemp: null,
           salinity: null,
+
           oxygen1: null,
           oxygen2: null,
           oxygen3: null,
+
           positions: {
             salinity: emptyPosition(),
             DO01: emptyPosition(),
@@ -201,10 +212,12 @@ export default async function handler(
         records.set(key, record);
       }
 
+      // 水温・塩分・DOなどの値
       for (const [field, column] of Object.entries(source.columns)) {
         record[field as ValueKey] = toNumber(row[column as number]);
       }
 
+      // GPS（7・8・9列目）
       const a = toNumber(row[7]);
       const b = toNumber(row[8]);
       const c = toNumber(row[9]);
@@ -245,6 +258,7 @@ export default async function handler(
   } else if (date && todayJst && date < todayJst) {
     sMaxAge = 600;
   } else {
+    // 今の30分枠のデータが、使っている全センサ分そろっているか（GPSは判定に含めない）
     const requiredFields = activeSources.flatMap(
       (source) => Object.keys(source.columns) as ValueKey[]
     );
