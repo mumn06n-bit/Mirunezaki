@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CompareSetting.css";
@@ -20,24 +21,9 @@ export default function CompareSettingPage() {
   const [graphPeriod, setGraphPeriod] =
     useState<CompareSettings["graphPeriod"]>("month");
 
-  // 比較期間
+  // 比較期間：初期状態では0件
   const [periods, setPeriods] =
-    useState<CompareSettings["periods"]>([
-      {
-        id: 1,
-        color: "#ff6b6b",
-        year: 2026,
-        month: 5,
-        day: 1,
-      },
-      {
-        id: 2,
-        color: "#6ba8ff",
-        year: 2026,
-        month: 6,
-        day: 1,
-      },
-    ]);
+    useState<CompareSettings["periods"]>([]);
 
   // 期間の色
   const colors = [
@@ -72,8 +58,10 @@ export default function CompareSettingPage() {
   // 期間追加
   const addPeriod = () => {
 
+    // 5件を超えて追加しない
     if (periods.length >= 5) return;
 
+    // 使用されていない色を取得
     const usedColors = periods.map(period => period.color);
 
     const newColor = colors.find(
@@ -82,12 +70,20 @@ export default function CompareSettingPage() {
 
     if (!newColor) return;
 
+    // 現在の日付を取得
+    const now = new Date();
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+
+    // グラフ期間に応じた初期値を設定
     const newPeriod = {
       id: Date.now(),
       color: newColor,
-      year: 2026,
-      month: 7,
-      day: 1,
+      year: currentYear,
+      month: graphPeriod === "year" ? 1 : currentMonth,
+      day: currentDay,
     };
 
     setPeriods(prev => [...prev, newPeriod]);
@@ -114,18 +110,19 @@ export default function CompareSettingPage() {
       prev.map(period =>
         period.id === id
           ? {
-            ...period, [key]: value,
-            day:
-              key === "year" || key === "month"
-                ? Math.min(
-                  period.day,
-                  getDaysInMonth(
-                    key === "year" ? value : period.year,
-                    key === "month" ? value : period.month
-                  )
-                )
-                : value,
-          }
+              ...period,
+              [key]: value,
+              day:
+                key === "year" || key === "month"
+                  ? Math.min(
+                      period.day,
+                      getDaysInMonth(
+                        key === "year" ? value : period.year,
+                        key === "month" ? value : period.month
+                      )
+                    )
+                  : value,
+            }
           : period
       )
     );
@@ -138,9 +135,8 @@ export default function CompareSettingPage() {
   };
 
   // 重複期間の判定
-
-  // 重複期間の判定
   const hasDuplicatePeriods = () => {
+
     const keys = periods.map((period) => {
       let dateKey = "";
 
@@ -170,8 +166,6 @@ export default function CompareSettingPage() {
 
     return new Set(keys).size !== keys.length;
   };
-
-
 
   // 相関モードでの種類選択
   const toggleCorrelationSensor = (sensor: SensorKey) => {
@@ -261,7 +255,7 @@ export default function CompareSettingPage() {
           </label>
         </div>
 
-        {/* 種類 */}
+        {/* 通常モードでの種類選択 */}
         {!correlationMode && (
           <div className="setting-section">
 
@@ -328,7 +322,6 @@ export default function CompareSettingPage() {
 
         {/* 相関モードでの種類選択 */}
         {correlationMode && (
-
           <div className="setting-section">
 
             <p className="section-title">種類</p>
@@ -367,7 +360,6 @@ export default function CompareSettingPage() {
             </div>
 
           </div>
-
         )}
 
         <hr className="setting-divider" />
@@ -462,7 +454,10 @@ export default function CompareSettingPage() {
                     )
                   }
                 >
-                  {Array.from({ length: 11 }, (_, i) => 2026 + i).map((year) => (
+                  {Array.from(
+                    { length: 11 },
+                    (_, i) => 2026 + i
+                  ).map((year) => (
                     <option
                       key={year}
                       value={year}
@@ -486,7 +481,10 @@ export default function CompareSettingPage() {
                     )
                   }
                 >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  {Array.from(
+                    { length: 12 },
+                    (_, i) => i + 1
+                  ).map((month) => (
                     <option
                       key={month}
                       value={month}
@@ -513,7 +511,15 @@ export default function CompareSettingPage() {
                     )
                   }
                 >
-                  {Array.from({ length: getDaysInMonth(period.year, period.month) }, (_, i) => i + 1).map((day) => (
+                  {Array.from(
+                    {
+                      length: getDaysInMonth(
+                        period.year,
+                        period.month
+                      ),
+                    },
+                    (_, i) => i + 1
+                  ).map((day) => (
                     <option
                       key={day}
                       value={day}
@@ -525,37 +531,38 @@ export default function CompareSettingPage() {
 
                 <span>日</span>
 
+                {/* 溶存酸素センサー */}
                 {!correlationMode && sensorType === "oxygen" && (
-                <div className="oxygen-select">
-                  <select
-                    value={period.oxygenSensor ?? "oxygen1"}
-                    onChange={(e) => {
-                      const oxygenSensor = e.target.value as
-                        | "oxygen1"
-                        | "oxygen2"
-                        | "oxygen3";
+                  <div className="oxygen-select">
 
-                      setPeriods((prev) =>
-                        prev.map((item) =>
-                          item.id === period.id
-                            ? { ...item, oxygenSensor }
-                            : item
-                        )
-                      );
-                    }}
-                  >
-                    <option value="oxygen1">DO1</option>
-                    <option value="oxygen2">DO2</option>
-                    <option value="oxygen3">DO3</option>
-                  </select>
-                </div>
-              )}
+                    <select
+                      value={period.oxygenSensor ?? "oxygen1"}
+                      onChange={(e) => {
+                        const oxygenSensor = e.target.value as
+                          | "oxygen1"
+                          | "oxygen2"
+                          | "oxygen3";
+
+                        setPeriods((prev) =>
+                          prev.map((item) =>
+                            item.id === period.id
+                              ? { ...item, oxygenSensor }
+                              : item
+                          )
+                        );
+                      }}
+                    >
+                      <option value="oxygen1">DO1</option>
+                      <option value="oxygen2">DO2</option>
+                      <option value="oxygen3">DO3</option>
+                    </select>
+
+                  </div>
+                )}
 
               </div>
 
-              {/* 溶存酸素センサー */}
-              
-
+              {/* 削除ボタン */}
               <button
                 className="delete-button"
                 onClick={() =>
@@ -569,16 +576,14 @@ export default function CompareSettingPage() {
 
           ))}
 
-          {/* 期間を５コまでにするやつ */}
+          {/* 期間追加ボタン */}
           {periods.length < 5 && (
-
             <button
               className="add-period-button"
               onClick={addPeriod}
             >
               ＋ 期間を追加
             </button>
-
           )}
 
         </div>
