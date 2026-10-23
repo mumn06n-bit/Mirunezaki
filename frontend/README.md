@@ -32,16 +32,10 @@
 フロントエンド：React、TypeScript
 
 ## ディレクトリ構成
-
-Web_protoType/
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.ts
-└── README.md
+![ディレクトリ構成](./ディレクトリ構成.png)
 
 ### frontendフォルダ内の詳細は以下
+![frontendフォルダ内](./frontendフォルダ内.png)
 
 frontend/
 ├── api/                              **サーバー側（Vercel Functions）**
