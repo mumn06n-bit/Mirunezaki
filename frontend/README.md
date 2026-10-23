@@ -35,7 +35,7 @@
 ![ディレクトリ構成](./ディレクトリ構成.png)
 
 ### frontendフォルダ内の詳細は以下
-![frontendフォルダ内](./frontendフォルダ内.png)
+![frontendフォルダ内](./frontend_folder_inner.png)
 
 # ＜DataPage＞
 
