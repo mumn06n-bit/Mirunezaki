@@ -3,7 +3,6 @@ import "./BottomNavigation.css";
 import { Icons } from "@/components/materials";
 
 export default function BottomNavigation() {
-
   const location = useLocation();
 
   const isDataActive =
@@ -14,9 +13,11 @@ export default function BottomNavigation() {
     location.pathname === "/compare" ||
     location.pathname === "/compare-setting";
 
+  // 地図ページを開いているか判定
+  const isMapPage = location.pathname === "/sensor-map";
+
   return (
     <nav className="bottom-navigation">
-
       <NavLink
         to="/data"
         className={isDataActive ? "nav-item active" : "nav-item"}
@@ -43,12 +44,17 @@ export default function BottomNavigation() {
       <NavLink
         to="/settings"
         className={({ isActive }) =>
-          isActive ? "nav-item active" : "nav-item"
+          [
+            "nav-item",
+            isActive ? "active" : "",
+            isMapPage ? "map-page-settings" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")
         }
       >
         <Icons.Settings size={40} />
       </NavLink>
-
     </nav>
   );
 }

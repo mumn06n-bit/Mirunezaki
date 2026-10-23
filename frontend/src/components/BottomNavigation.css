@@ -13,11 +13,19 @@
     align-items: center;
 }
 
+/* 通常時のアイコン */
 .nav-item {
     color: var(--inactive);
     text-decoration: none;
 }
 
+/* 選択中のアイコン */
 .nav-item.active {
-    color:var(--active);
+    color: var(--active);
+}
+
+/* 地図ページを開いているときだけ設定アイコンを白色にする */
+.nav-item.map-page-settings,
+.nav-item.map-page-settings.active {
+    color: white;
 }
