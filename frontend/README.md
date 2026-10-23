@@ -32,7 +32,7 @@
 フロントエンド：React、TypeScript
 
 ## ディレクトリ構成
-![ディレクトリ構成](./ディレクトリ構成.png)
+![ディレクトリ構成](./folder_sample.png)
 
 ### frontendフォルダ内の詳細は以下
 ![frontendフォルダ内](./frontend_folder_inner.png)
