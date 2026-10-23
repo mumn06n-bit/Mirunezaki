@@ -31,7 +31,6 @@
 フロントエンド：React、TypeScript
 
 ## ディレクトリ構成
-
 Web_protoType/
 ├── frontend/
 │   ├── src/
