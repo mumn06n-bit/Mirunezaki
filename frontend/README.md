@@ -1,75 +1,91 @@
-# React + TypeScript + Vite
+#狐崎みる（テスト用）
+## 概要
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+狐崎浜周辺の海洋情報をわかりやすく確認できることを目的として開発したWebサイトです。
+気温・水温・塩分濃度・溶存酸素の情報を確認・比較する機能を提供します。
 
-Currently, two official plugins are available:
+## 主な機能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 海洋情報の取得・確認
+- 日時ごとのデータ管理
+- データのグラフ・散布図表示
 
-## React Compiler
+## 必要なパッケージ
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- react-router-dom
+- lucide-react
+- -D vite-tsconfig-paths
+- react-calendar
+- echarts echarts-for-react
+- tslib
+- leaflet react-leaflet
+- D @types/leaflet
+- --save-dev @types/node
 
-## Expanding the ESLint configuration
+## パッケージ導入方法
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+ターミナルで “npm.cmd 各パッケージ名”
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 使用技術
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+フロントエンド：React、TypeScript
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## ディレクトリ構成
 
-```
+Web_protoType/
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.ts
+└── README.md
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### frontendフォルダ内の詳細は以下
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+frontend/
+├── api/                              **サーバー側（Vercel Functions）**
+│   └── sensors.ts                    **統合API：元のAPIをまとめて取得し、1つのJSONにして返す**
+└── src/
+├── assets/                       **画像**
+├── components/                   **共通部品**
+│   ├── BottomNavigation.tsx      **下部ナビゲーション**
+│   ├── BottomNavigation.css
+│   ├── colors.css                **色の設定**
+│   ├── Header.tsx                **ヘッダー**
+│   ├── Header.css
+│   ├── materials.tsx             **アイコンなどの素材**
+│   ├── PageLayout.tsx            **各画面共通のレイアウト**
+│   └── PageLayout.css
+├── pages/                        **各画面**
+│   ├── ComparePage/              **比較画面**
+│   │   ├── ComparePage.tsx　　**比較画面本体**
+│   │   ├── ComparePage.css
+│   │   ├── CompareChart.tsx      **比較グラフ描画**
+│   │   ├── CompareChart.css
+│   │   ├── CompareScatter.tsx    **散布図描画**
+│   │   ├── CompareScatter.css
+│   │   ├── CompareSetting.tsx    **比較設定**
+│   │   ├── CompareSetting.css
+│   │   └── compareData.ts        **比較用のデータ処理**
+│   ├── DataPage/                 **データ画面**
+│   │   ├── DataPage.tsx　　**データ画面本体**
+│   │   ├── DataPage.css
+│   │   ├── Calendar.tsx          **カレンダー画面**
+│   │   └── Calendar.css
+│   ├── GraphPage/                **グラフ画面**
+│   │   ├── GraphPage.tsx　　**グラフ画面本体**
+│   │   ├── GraphPage.css
+│   │   ├── GraphChart.tsx        **グラフ描画処理**
+│   │   └── GraphChart.css
+│   └── SettingPage/              **設定画面**
+│       ├── SettingPage.tsx
+│       ├── SettingPage.css
+│       ├── map.tsx               **地図でセンサを選ぶ画面**
+│       └── map.css
+├── services/
+│   └── sensorData.ts            **統合API(/api/sensors)からのデータ取得、グラフ用データへの変換**
+├── App.tsx
+├── App.css
+├── index.css
+└── main.tsx                      **アプリの入口**
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
