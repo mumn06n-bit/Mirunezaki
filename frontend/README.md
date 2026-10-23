@@ -32,9 +32,10 @@
 フロントエンド：React、TypeScript
 
 ## ディレクトリ構成
-
+![ディレクトリ構成](../ディレクトリ構成.png)
 
 ### frontendフォルダ内の詳細は以下
+![frontendフォルダ内](../frontendフォルダ内.png)
 
 # ＜DataPage＞
 
