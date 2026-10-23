@@ -89,7 +89,6 @@ frontend/
 ├── index.css
 └── main.tsx                      **アプリの入口**
 
-
 # ＜DataPage＞
 
 ### 概要
