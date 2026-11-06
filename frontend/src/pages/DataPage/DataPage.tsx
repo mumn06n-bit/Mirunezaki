@@ -16,7 +16,7 @@ const times = Array.from({ length: 48 }, (_, i) => {
   return `${hour}:${minute}`;
 });
 
-const SLOT_MS = 30 * 60 * 1000;
+//const SLOT_MS = 30 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // 現在時刻から最新の30分単位の時間を取得

@@ -425,28 +425,12 @@ export default function CompareScatter({
           createMonthlyAverageData(periodData);
       }
 
-      const data: ScatterPoint[] = periodData
-        .map((record) => {
-          const x = record[xField];
-          const y = record[yField];
-
-          if (
-            typeof x !== "number" ||
-            !Number.isFinite(x) ||
-            typeof y !== "number" ||
-            !Number.isFinite(y)
-          ) {
-            return null;
-          }
-
-          return [x, y] as ScatterPoint;
-        })
-        .filter(
-          (
-            point
-          ): point is ScatterPoint =>
-            point !== null
-        );
+      xAxis: {
+        type: "value",
+        name: `${getSensorNameByValue(axes.x)} [${getSensorUnit(axes.x)}]`,
+        nameLocation: "middle",
+        nameGap: 35,
+      },
 
       return {
         type: "scatter",
@@ -491,9 +475,27 @@ const getCorrelationChartOption = (
       },
     },
 
-    yAxis: {
-      type: "value" as const,
-      ...getAxisRange(axes.y),
+      series: settings.periods.map((period) => {
+        let periodData =
+          sensorData[period.id] ?? [];
+
+        /*
+         * 日
+         * → 30分ごとのデータをそのまま使用
+         *
+         * 月
+         * → 1日ごとの平均を使用
+         *
+         * 年
+         * → 1か月ごとの平均を使用
+         */
+        if (settings.graphPeriod === "month") {
+          periodData =
+            createDailyAverageData(periodData);
+        } else if (settings.graphPeriod === "year") {
+          periodData =
+            createMonthlyAverageData(periodData);
+        }
 
       name: `${getSensorNameByValue(
         axes.y
