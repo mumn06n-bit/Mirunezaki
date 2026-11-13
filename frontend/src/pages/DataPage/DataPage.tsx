@@ -1,4 +1,3 @@
-
 import "./DataPage.css";
 import { Icons } from "@/components/materials";
 import PageLayout from "@/components/PageLayout";

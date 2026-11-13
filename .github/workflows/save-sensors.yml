@@ -1,48 +1,16 @@
-
-name: Save Sensor Data
-
+name: save-sensors
 on:
-  workflow_dispatch:
-
   schedule:
-    - cron: "*/30 * * * *"
-
+    - cron: "1,31 * * * *"   # 毎時5分・35分（元APIの更新は00分・30分）
+  workflow_dispatch:          # 手動実行ボタン
 jobs:
-  save-sensor-data:
+  ingest:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check environment variables
+      - name: Call ingest API
+        env:
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+          INGEST_URL: ${{ secrets.INGEST_URL }}
         run: |
-          test -n "$SUPABASE_URL" && echo "SUPABASE_URL: OK" || echo "SUPABASE_URL: MISSING"
-          test -n "$SUPABASE_SERVICE_ROLE_KEY" && echo "SUPABASE_SERVICE_ROLE_KEY: OK" || echo "SUPABASE_SERVICE_ROLE_KEY: MISSING"
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-      - name: Save sensor data to Supabase
-        run: node scripts/save-sensors.mjs
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SALINITY_API_URL: ${{ secrets.SALINITY_API_URL }}
-          DO1_API_URL: ${{ secrets.DO1_API_URL }}
-          DO2_API_URL: ${{ secrets.DO2_API_URL }}
-          DO3_API_URL: ${{ secrets.DO3_API_URL }}
+          curl -sS --fail-with-body --retry 2 --retry-delay 10 --max-time 120 \
+            -X POST -H "Authorization: Bearer $INGEST_SECRET" "$INGEST_URL"
