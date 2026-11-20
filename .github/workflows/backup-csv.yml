@@ -59,6 +59,10 @@ jobs:
               exit 1
             fi
 
+            # CSVの最後の行には改行が付かないことがあるため、必ず改行で終わるようにそろえる
+            # （そろえないと、次のページの1行目が、前のページの最後の行に連結される）
+            awk '1' page.csv > page.norm && mv page.norm page.csv
+
             # 1ページ目の応答に、表全体の行数（Content-Range: 0-999/7124）が入っている
             if [ "$offset" -eq 0 ]; then
               expected_total="$(grep -i '^content-range:' headers.txt | sed -E 's|.*/([0-9]+).*|\1|' | tr -d '\r' || true)"
@@ -88,6 +92,18 @@ jobs:
           # 取り出した行数が、最初に確認した全体の行数より少なければ失敗にする
           if [[ "$expected_total" =~ ^[0-9]+$ ]] && [ "$rows_total" -lt "$expected_total" ]; then
             echo "エラー: ${expected_total}行のはずが ${rows_total}行しか取れていません。保存しません。" >&2
+            exit 1
+          fi
+
+          # 仕上がりの確認：行数が「項目名＋データ行数」と一致し、どの行も項目数が同じであること
+          file_lines="$(awk 'END{print NR}' export.tmp)"
+          if [ "$file_lines" -ne $(( rows_total + 1 )) ]; then
+            echo "エラー: 行数が合いません（期待 $(( rows_total + 1 ))行、実際 ${file_lines}行）。保存しません。" >&2
+            exit 1
+          fi
+          bad_lines="$(awk -F',' 'NR==1{n=NF} NF!=n' export.tmp | wc -l | tr -d ' ')"
+          if [ "$bad_lines" -ne 0 ]; then
+            echo "エラー: 項目数が違う行が ${bad_lines}行あります。保存しません。" >&2
             exit 1
           fi
 
