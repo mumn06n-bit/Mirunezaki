@@ -1,7 +1,7 @@
 name: save-sensors
 on:
   schedule:
-    - cron: "1,31 * * * *"   # 毎時5分・35分（元APIの更新は00分・30分）
+    - cron: "1,31 * * * *"   # 毎時1分・31分（元APIの更新は00分・30分）
   workflow_dispatch:          # 手動実行ボタン
 jobs:
   ingest:
