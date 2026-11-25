@@ -6,6 +6,7 @@ import {
     type CompareSettings,
 } from "@/pages/ComparePage/compareData";
 import "./CompareChart.css";
+import { fetchSensorData } from "@/services/sensorData";
 
 type SensorData = {
     datetime: string;
@@ -126,24 +127,9 @@ export default function CompareChart({
     };
 
     // 選択した期間のデータを取得
+    // 選択した期間のデータを取得
     useEffect(() => {
         let cancelled = false;
-
-        const getDateQuery = (
-            period: CompareSettings["periods"][number]
-        ) => {
-            const year = period.year;
-            const month = String(period.month).padStart(2, "0");
-            const day = String(period.day).padStart(2, "0");
-
-            if (graphPeriod === "day") {
-                return `${year}-${month}-${day}`;
-            } else if (graphPeriod === "month") {
-                return `${year}-${month}`;
-            } else {
-                return String(year);
-            }
-        };
 
         if (periods.length === 0) {
             setSensorData({});
@@ -159,26 +145,33 @@ export default function CompareChart({
         setHasError(false);
 
         const fetchData = async () => {
-            const results: Record<number, SensorData[]> = {};
-
             try {
-                await Promise.all(
-                    periods.map(async (period) => {
-                        const date = getDateQuery(period);
-                        const response = await fetch(
-                            `/api/sensors?date=${date}`
-                        );
+                // 全期間のデータを一度取得
+                const allData = await fetchSensorData();
 
-                        if (!response.ok) {
-                            throw new Error(
-                                `API error: ${response.status}`
-                            );
+                const results: Record<number, SensorData[]> = {};
+
+                // 選択した期間ごとにデータを抽出
+                for (const period of periods) {
+                    const year = String(period.year);
+                    const month = String(period.month).padStart(2, "0");
+                    const day = String(period.day).padStart(2, "0");
+
+                    const targetDate = `${year}-${month}-${day}`;
+                    const targetMonth = `${year}-${month}`;
+
+                    results[period.id] = allData.filter((record) => {
+                        if (graphPeriod === "day") {
+                            return record.datetime.slice(0, 10) === targetDate;
                         }
 
-                        const data: SensorData[] = await response.json();
-                        results[period.id] = data;
-                    })
-                );
+                        if (graphPeriod === "month") {
+                            return record.datetime.slice(0, 7) === targetMonth;
+                        }
+
+                        return record.datetime.slice(0, 4) === year;
+                    });
+                }
 
                 if (!cancelled) {
                     setSensorData(results);

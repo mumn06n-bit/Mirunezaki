@@ -210,7 +210,7 @@ export default function CompareSettingPage() {
     setCorrelationSensors((prev) => [...prev, sensor]);
   };
   // DOセンサー選択欄を表示するか判定
-const showOxygenSelector = correlationMode
+const usesOxygen = correlationMode
   ? correlationSensors.includes("oxygen")
   : sensorType === "oxygen";
 

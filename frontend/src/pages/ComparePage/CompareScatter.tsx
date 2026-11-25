@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 import "./CompareScatter.css";
 import { getSensorUnit } from "./compareData";
 import type { CompareSettings, SensorKey } from "./compareData";
+import { fetchSensorData } from "@/services/sensorData";
 
 type CompareScatterProps = {
     settings: CompareSettings;
@@ -84,52 +85,40 @@ export default function CompareScatter({
         setHasError(false);
 
         const fetchData = async () => {
-            const results: Record<number, SensorData[]> = {};
-
             try {
-                await Promise.all(
-                    settings.periods.map(async (period) => {
-                        let date = "";
+                // 全期間のデータを一度取得
+                const allData = await fetchSensorData();
 
-                        // 日：その日のデータを取得
+                const results: Record<number, SensorData[]> = {};
+
+                // 選択した期間ごとにデータを抽出
+                for (const period of settings.periods) {
+                    const year = String(period.year);
+                    const month = String(period.month).padStart(2, "0");
+                    const day = String(period.day).padStart(2, "0");
+
+                    const targetDate = `${year}-${month}-${day}`;
+                    const targetMonth = `${year}-${month}`;
+
+                    results[period.id] = allData.filter((record) => {
                         if (settings.graphPeriod === "day") {
-                            date = `${period.year}-${String(
-                                period.month
-                            ).padStart(2, "0")}-${String(
-                                period.day
-                            ).padStart(2, "0")}`;
-                        } else if (settings.graphPeriod === "month") {
-                            date = `${period.year}-${String(
-                                period.month
-                            ).padStart(2, "0")}`;
-                        } else if (settings.graphPeriod === "year") {
-                            date = String(period.year);
+                            return record.datetime.slice(0, 10) === targetDate;
                         }
 
-                        const response = await fetch(
-                            `/api/sensors?date=${date}`
-                        );
-
-                        if (!response.ok) {
-                            throw new Error(
-                                `API error: ${response.status}`
-                            );
+                        if (settings.graphPeriod === "month") {
+                            return record.datetime.slice(0, 7) === targetMonth;
                         }
 
-                        const data: SensorData[] = await response.json();
-                        results[period.id] = data;
-                    })
-                );
+                        return record.datetime.slice(0, 4) === year;
+                    });
+                }
 
                 if (!cancelled) {
                     setSensorData(results);
                     setHasError(false);
                 }
             } catch (error) {
-                console.error(
-                    "相関図のセンサーデータ取得エラー:",
-                    error
-                );
+                console.error("相関図のセンサーデータ取得エラー:", error);
 
                 if (!cancelled) {
                     setSensorData({});
