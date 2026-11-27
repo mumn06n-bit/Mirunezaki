@@ -16,6 +16,14 @@ const times = Array.from({ length: 48 }, (_, i) => {
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+// 30分以上前に保存された時刻選択は捨てる
+// 30分以内であれば保存した時刻を適用する（これを過ぎたら現在時刻から始める）
+const RESTORE_LIMIT_MS = 10 * 60 * 1000;
+
+const isSavedFresh = () => {
+  const savedAt = Number(localStorage.getItem("dataSavedAt"));
+  return Number.isFinite(savedAt) && Date.now() - savedAt < RESTORE_LIMIT_MS;
+};
 
 // 現在時刻から最新の30分単位の時間を取得
 const getLatestTime = () => {
@@ -128,10 +136,7 @@ export default function DataPage() {
       }
     }
 
-    const savedDate = parseStoredDate(
-      localStorage.getItem("dataSelectedDate")
-    );
-
+    const savedDate = isSavedFresh() ? parseStoredDate(localStorage.getItem("dataSelectedDate")) : null;
     return savedDate ?? new Date();
   });
 
@@ -142,7 +147,6 @@ export default function DataPage() {
     if (stateTime && times.includes(stateTime)) {
       return stateTime;
     }
-
     const savedTime = localStorage.getItem("dataTime");
 
     if (savedTime && times.includes(savedTime)) {
@@ -158,11 +162,13 @@ export default function DataPage() {
       "dataSelectedDate",
       formatDateForStorage(selectedDate)
     );
+    localStorage.setItem("dataSavedAt", String(Date.now()));
   }, [selectedDate]);
 
   // 選択時刻を保存
   useEffect(() => {
     localStorage.setItem("dataTime", time);
+    localStorage.setItem("dataSavedAt", String(Date.now()));
   }, [time]);
 
   // DOセンサーの設定を読み込む
