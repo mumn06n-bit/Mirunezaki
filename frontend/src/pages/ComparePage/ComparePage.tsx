@@ -8,7 +8,7 @@ import type { CompareSettings } from "./compareData";
 
 export default function ComparePage() {
 
-  const [settings, setSettings] = useState<CompareSettings | null>(null);
+const [settings, setSettings] = useState<CompareSettings | null>(null);
 
   // 保存された設定を読み込む
   useEffect(() => {

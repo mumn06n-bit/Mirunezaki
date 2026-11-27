@@ -1,0 +1,133 @@
+name: backup-csv
+on:
+  schedule:
+    - cron: "17 18,6 * * *"   # UTCの18:17と6:17 ＝ 日本時間の3:17と15:17（1日2回）
+  workflow_dispatch:          # 手動実行ボタン
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-csv
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # 保存先（バックアップ用リポジトリ）を、デプロイキーで取得する
+      - name: Checkout backup repository
+        uses: actions/checkout@v4
+        with:
+          repository: mumn06n-bit/Mirunezaki_bkup
+          ssh-key: ${{ secrets.BACKUP_DEPLOY_KEY }}
+          path: backup
+
+      # DBの全行をCSVで取り出す
+      - name: Export CSV from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TABLE: sensor_readings   # ← ingest.ts が書き込んでいる表の名前に合わせる
+        run: |
+          set -euo pipefail
+
+          # SupabaseのREST APIから、表の全行をCSVで取り出す（1000行ずつ）
+          BASE="${SUPABASE_URL%/}/rest/v1/${TABLE}"
+          OUT="backup/${TABLE}.csv"
+          PAGE=1000
+          offset=0
+          rows_total=0
+          expected_total=""
+          : > export.tmp
+
+          # 古い形式（JWT）の鍵のときだけ Authorization も付ける
+          auth=()
+          case "$SUPABASE_SERVICE_ROLE_KEY" in
+            eyJ*) auth=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY") ;;
+          esac
+
+          while :; do
+            if ! curl -sS --fail-with-body --retry 3 --retry-delay 5 --max-time 60 \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" ${auth[@]+"${auth[@]}"} \
+              -H "Accept: text/csv" -H "Prefer: count=exact" \
+              -D headers.txt -o page.csv \
+              "${BASE}?select=*&order=datetime.asc,sensor_id.asc&limit=${PAGE}&offset=${offset}"; then
+              echo "エラー: Supabaseからの応答:" >&2
+              cat page.csv >&2 || true
+              exit 1
+            fi
+
+            # CSVの最後の行には改行が付かないことがあるため、必ず改行で終わるようにそろえる
+            # （そろえないと、次のページの1行目が、前のページの最後の行に連結される）
+            awk '1' page.csv > page.norm && mv page.norm page.csv
+
+            # 1ページ目の応答に、表全体の行数（Content-Range: 0-999/7124）が入っている
+            if [ "$offset" -eq 0 ]; then
+              expected_total="$(grep -i '^content-range:' headers.txt | sed -E 's|.*/([0-9]+).*|\1|' | tr -d '\r' || true)"
+            fi
+
+            lines="$(awk 'END{print NR}' page.csv)"
+            rows=$(( lines > 0 ? lines - 1 : 0 ))   # 1行目は項目名
+
+            if [ "$offset" -eq 0 ]; then
+              cat page.csv >> export.tmp                 # 1ページ目は項目名ごと
+            elif [ "$rows" -gt 0 ]; then
+              tail -n +2 page.csv >> export.tmp          # 2ページ目以降は項目名を除く
+            fi
+
+            rows_total=$(( rows_total + rows ))
+            echo "offset=${offset} rows=${rows} total=${rows_total}"
+
+            [ "$rows" -lt "$PAGE" ] && break
+            offset=$(( offset + PAGE ))
+          done
+
+          if [ "$rows_total" -eq 0 ]; then
+            echo "エラー: 0行でした。保存しません。" >&2
+            exit 1
+          fi
+
+          # 取り出した行数が、最初に確認した全体の行数より少なければ失敗にする
+          if [[ "$expected_total" =~ ^[0-9]+$ ]] && [ "$rows_total" -lt "$expected_total" ]; then
+            echo "エラー: ${expected_total}行のはずが ${rows_total}行しか取れていません。保存しません。" >&2
+            exit 1
+          fi
+
+          # 仕上がりの確認：行数が「項目名＋データ行数」と一致し、どの行も項目数が同じであること
+          file_lines="$(awk 'END{print NR}' export.tmp)"
+          if [ "$file_lines" -ne $(( rows_total + 1 )) ]; then
+            echo "エラー: 行数が合いません（期待 $(( rows_total + 1 ))行、実際 ${file_lines}行）。保存しません。" >&2
+            exit 1
+          fi
+          bad_lines="$(awk -F',' 'NR==1{n=NF} NF!=n' export.tmp | wc -l | tr -d ' ')"
+          if [ "$bad_lines" -ne 0 ]; then
+            echo "エラー: 項目数が違う行が ${bad_lines}行あります。保存しません。" >&2
+            exit 1
+          fi
+
+          mv export.tmp "$OUT"
+          echo "保存しました: ${OUT}（${rows_total}行）"
+
+      # 前回から変わっていれば、コミットして保存先にpushする
+      - name: Commit and push
+        env:
+          TABLE: sensor_readings   # ← 上と同じ名前にする
+        run: |
+          set -euo pipefail
+
+          cd backup
+          git config user.name "backup-bot"
+          git config user.email "backup-bot@users.noreply.github.com"
+
+          git add "${TABLE}.csv"
+
+          if git diff --cached --quiet; then
+            echo "前回から変更がないため、コミットしません。"
+            exit 0
+          fi
+
+          rows=$(( $(wc -l < "${TABLE}.csv") - 1 ))
+          git commit -m "backup: ${rows} rows ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M') JST)"
+          git push

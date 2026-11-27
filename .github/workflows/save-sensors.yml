@@ -1,0 +1,16 @@
+name: save-sensors
+on:
+  schedule:
+    - cron: "1,31 * * * *"   # 毎時1分・31分（元APIの更新は00分・30分）
+  workflow_dispatch:          # 手動実行ボタン
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call ingest API
+        env:
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+          INGEST_URL: ${{ secrets.INGEST_URL }}
+        run: |
+          curl -sS --fail-with-body --retry 2 --retry-delay 10 --max-time 120 \
+            -X POST -H "Authorization: Bearer $INGEST_SECRET" "$INGEST_URL"

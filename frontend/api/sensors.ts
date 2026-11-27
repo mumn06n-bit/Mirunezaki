@@ -1,9 +1,10 @@
-
-import Papa from "papaparse";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // GET /api/sensors                         … 全期間のセンサーデータ
-// GET /api/sensors?date=YYYY-MM-DD         … 指定日のデータ
+// GET /api/sensors?date=YYYY-MM-DD         … 指定日（日本時間）のデータ
 // GET /api/sensors?positionsOnly=1         … センサーごとの最新位置だけ
+//
+// データはDB（Supabaseの sensor_readings）から読む。元APIには触れない。
 
 type SensorPosition = {
   latitude: number | null;
@@ -25,43 +26,33 @@ type SensorRecord = {
   positions: Record<PositionKey, SensorPosition>;
 };
 
-type ValueKey = Exclude<keyof SensorRecord, "datetime" | "positions">;
+// DBの sensor_readings 1行
+type DbRow = {
+  sensor_id: string;
+  datetime: string;
+  outside_temp: number | null;
+  water_temp: number | null;
+  salinity: number | null;
+  do_mgl: number | null;
+  pos1: number | null;
+  pos2: number | null;
+  pos3: number | null;
+};
 
-const SLOT_MS = 30 * 60 * 1000;
+// DBの sensor_id → 画面側の位置キー
+const POSITION_KEYS: Record<string, PositionKey> = {
+  salinity: "salinity",
+  do1: "DO01",
+  do2: "DO02",
+  do3: "DO03",
+};
 
-const SOURCES: {
-  name: string;
-  url: string | undefined;
-  columns: Partial<Record<ValueKey, number>>;
-  positionKey: PositionKey;
-}[] = [
-  {
-    name: "salinity",
-    url: process.env.SALINITY_API_URL,
-    columns: { outsideTemp: 3, waterTemp: 4, salinity: 6 },
-    positionKey: "salinity",
-  },
-  {
-    name: "do1",
-    url: process.env.DO1_API_URL,
-    columns: { oxygen1: 6 },
-    positionKey: "DO01",
-  },
-  {
-    name: "do2",
-    url: process.env.DO2_API_URL,
-    columns: { oxygen2: 6 },
-    positionKey: "DO02",
-  },
-  {
-    name: "do3",
-    url: process.env.DO3_API_URL,
-    columns: { oxygen3: 6 },
-    positionKey: "DO03",
-  },
-];
+const COLUMNS =
+  "sensor_id,datetime,outside_temp,water_temp,salinity,do_mgl,pos1,pos2,pos3";
 
-// GPS情報を緯度・経度に変換する
+// Supabaseは1回で最大1000行までしか返さないため、ページに分けて読む
+const PAGE_SIZE = 1000;
+
 function convertGPS(a: number, b: number, c: number) {
   const value = Math.round(a * 100);
 
@@ -89,53 +80,55 @@ const emptyPosition = (): SensorPosition => ({
   longitudeDMS: null,
 });
 
-// UTCの日時を日本時間に変換する
+const toPosition = (
+  a: number | null,
+  b: number | null,
+  c: number | null
+): SensorPosition => {
+  if (a === null || b === null || c === null) return emptyPosition();
+
+  const gps = convertGPS(a, b, c);
+  return {
+    latitude: gps.latitudeDecimal,
+    longitude: gps.longitudeDecimal,
+    latitudeDMS: gps.latitudeDMS,
+    longitudeDMS: gps.longitudeDMS,
+  };
+};
+
+// 日時 → 日本時間の「YYYY-MM-DDTHH:MM:00」（秒は切り捨て）
 const toJstKey = (value: string) => {
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return null;
 
   const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-
   return jst.toISOString().slice(0, 16) + ":00";
 };
 
-const toNumber = (value: string | undefined) => {
-  if (value === undefined || value.trim() === "") return null;
+const fetchRows = async (
+  supabase: SupabaseClient,
+  range?: { from: string; to: string }
+) => {
+  const rows: DbRow[] = [];
 
-  const num = Number(value);
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    let query = supabase.from("sensor_readings").select(COLUMNS);
+    if (range) query = query.gte("datetime", range.from).lt("datetime", range.to);
 
-  return Number.isFinite(num) ? num : null;
-};
+    const { data, error } = await query
+      .order("datetime", { ascending: true })
+      .order("sensor_id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
 
-const fetchWithRetry = async (url: string, retries = 1) => {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fetch(url, {
-        headers: { "User-Agent": "api_test/1.0" },
-        signal: AbortSignal.timeout(30_000),
-      });
-    } catch (error) {
-      if (attempt >= retries) throw error;
+    if (error) throw new Error(error.message);
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-};
+    const page = (data ?? []) as unknown as DbRow[];
+    rows.push(...page);
 
-const fetchCsvRows = async (url: string) => {
-  const apiResponse = await fetchWithRetry(url);
-
-  if (!apiResponse.ok) {
-    throw new Error(`upstream status ${apiResponse.status}`);
+    if (page.length < PAGE_SIZE) break;
   }
 
-  const parsed = Papa.parse<string[]>(await apiResponse.text(), {
-    header: false,
-    skipEmptyLines: true,
-  });
-
-  return parsed.data;
+  return rows;
 };
 
 type ApiRequest = {
@@ -158,36 +151,101 @@ export default async function handler(
   const dateParam = request.query?.date;
   const date = typeof dateParam === "string" ? dateParam : undefined;
 
-  const positionsOnlyParam = request.query?.positionsOnly;
-  const positionsOnly = positionsOnlyParam === "1";
+  const positionsOnly = request.query?.positionsOnly === "1";
 
-  const activeSources = SOURCES.filter((source) => source.url);
+  // 日付の形式チェックと、日本時間の1日分の範囲づくり
+  let range: { from: string; to: string } | undefined;
+  if (date) {
+    const start = new Date(`${date}T00:00:00+09:00`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(start.getTime())) {
+      return response
+        .status(400)
+        .json({ error: "date は YYYY-MM-DD 形式で指定してください。" });
+    }
+    range = {
+      from: start.toISOString(),
+      to: new Date(start.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  }
 
-  const results = await Promise.allSettled(
-    activeSources.map((source) => fetchCsvRows(source.url as string))
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return response
+      .status(500)
+      .json({ error: "DBの接続情報が設定されていません。" });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // キャッシュ：過去の日付は10分、それ以外は1分（DBは30分ごとにしか更新されない）
+  const todayJst = toJstKey(new Date().toISOString())?.slice(0, 10);
+  const isPastDate = !!date && !!todayJst && date < todayJst;
+  response.setHeader(
+    "Cache-Control",
+    isPastDate ? "s-maxage=600" : "s-maxage=60, stale-while-revalidate=300"
   );
 
-  const records = new Map<string, SensorRecord>();
-  const failedSources: string[] = [];
+  try {
+    // 地図用：センサーごとに最新の有効な位置だけを返す
+    if (positionsOnly) {
+      const latestPositions: Record<PositionKey, SensorPosition> = {
+        salinity: emptyPosition(),
+        DO01: emptyPosition(),
+        DO02: emptyPosition(),
+        DO03: emptyPosition(),
+      };
+      const latestTimes: Partial<Record<PositionKey, string>> = {};
 
-  results.forEach((result, i) => {
-    const source = activeSources[i];
+      await Promise.all(
+        Object.entries(POSITION_KEYS).map(async ([sensorId, key]) => {
+          const { data, error } = await supabase
+            .from("sensor_readings")
+            .select("datetime,pos1,pos2,pos3")
+            .eq("sensor_id", sensorId)
+            .not("pos1", "is", null)
+            .not("pos2", "is", null)
+            .not("pos3", "is", null)
+            .order("datetime", { ascending: false })
+            .limit(1);
 
-    if (result.status === "rejected") {
-      console.error(`${source.name} の取得に失敗しました:`, result.reason);
-      failedSources.push(source.name);
-      return;
+          if (error) throw new Error(error.message);
+
+          const row = data?.[0] as
+            | Pick<DbRow, "datetime" | "pos1" | "pos2" | "pos3">
+            | undefined;
+          if (!row) return;
+
+          latestPositions[key] = toPosition(row.pos1, row.pos2, row.pos3);
+          const jstKey = toJstKey(row.datetime);
+          if (jstKey) latestTimes[key] = jstKey;
+        })
+      );
+
+      const latestDatetime =
+        Object.values(latestTimes)
+          .filter((value): value is string => value !== undefined)
+          .sort()
+          .at(-1) ?? null;
+
+      return response.status(200).json({
+        positions: latestPositions,
+        datetime: latestDatetime,
+        positionDatetimes: latestTimes,
+      });
     }
 
-    for (const row of result.value) {
-      if (!row[1]) continue;
+    // 通常：DBの行を、日時（日本時間・分まで）ごとに1つのレコードにまとめる
+    const rows = await fetchRows(supabase, range);
+    const records = new Map<string, SensorRecord>();
 
-      const key = toJstKey(row[1]);
+    for (const row of rows) {
+      const key = toJstKey(row.datetime);
       if (!key) continue;
-      if (date && !key.startsWith(date)) continue;
 
       let record = records.get(key);
-
       if (!record) {
         record = {
           datetime: key,
@@ -204,128 +262,38 @@ export default async function handler(
             DO03: emptyPosition(),
           },
         };
-
         records.set(key, record);
       }
 
-      for (const [field, column] of Object.entries(source.columns)) {
-        record[field as ValueKey] = toNumber(row[column as number]);
+      if (row.sensor_id === "salinity") {
+        record.outsideTemp = row.outside_temp;
+        record.waterTemp = row.water_temp;
+        record.salinity = row.salinity;
+      } else if (row.sensor_id === "do1") {
+        record.oxygen1 = row.do_mgl;
+      } else if (row.sensor_id === "do2") {
+        record.oxygen2 = row.do_mgl;
+      } else if (row.sensor_id === "do3") {
+        record.oxygen3 = row.do_mgl;
       }
 
-      // 全センサー共通のGPS変換処理
-      const a = toNumber(row[7]);
-      const b = toNumber(row[8]);
-      const c = toNumber(row[9]);
-
-      if (a !== null && b !== null && c !== null) {
-        const gps = convertGPS(a, b, c);
-
-        record.positions[source.positionKey] = {
-          latitude: gps.latitudeDecimal,
-          longitude: gps.longitudeDecimal,
-          latitudeDMS: gps.latitudeDMS,
-          longitudeDMS: gps.longitudeDMS,
-        };
+      const positionKey = POSITION_KEYS[row.sensor_id];
+      if (positionKey) {
+        const position = toPosition(row.pos1, row.pos2, row.pos3);
+        if (position.latitude !== null) record.positions[positionKey] = position;
       }
     }
-  });
 
-  if (results.every((result) => result.status === "rejected")) {
-    return response.status(502).json({
-      error: "元APIからのデータ取得に失敗しました。",
-    });
-  }
-
-  const body = [...records.values()].sort((a, b) =>
-    a.datetime.localeCompare(b.datetime)
-  );
-
-  const now = Date.now();
-  const slotStart = Math.floor(now / SLOT_MS) * SLOT_MS;
-  const currentSlotKey = toJstKey(new Date(slotStart).toISOString());
-  const todayJst = currentSlotKey?.slice(0, 10);
-
-  let sMaxAge: number;
-
-  if (failedSources.length > 0) {
-    response.setHeader("X-Failed-Sources", failedSources.join(","));
-    sMaxAge = 10;
-  } else if (date && todayJst && date < todayJst) {
-    sMaxAge = 600;
-  } else {
-    const requiredFields = activeSources.flatMap(
-      (source) => Object.keys(source.columns) as ValueKey[]
+    const body = [...records.values()].sort((a, b) =>
+      a.datetime.localeCompare(b.datetime)
     );
 
-    const current = currentSlotKey
-      ? records.get(currentSlotKey)
-      : undefined;
-
-    const isComplete =
-      !!current &&
-      requiredFields.every((field) => current[field] !== null);
-
-    if (isComplete) {
-      sMaxAge = Math.ceil((slotStart + SLOT_MS - now) / 1000) + 5;
-    } else {
-      sMaxAge = 30;
-    }
+    return response.status(200).json(body);
+  } catch (error) {
+    console.error("DBからの読み出しに失敗しました:", error);
+    response.setHeader("Cache-Control", "no-store");
+    return response
+      .status(500)
+      .json({ error: "DBからのデータ取得に失敗しました。" });
   }
-
-  response.setHeader("Cache-Control", `s-maxage=${sMaxAge}`);
-
-  // 地図用：センサーごとに最新の有効な位置だけを返す
-  if (positionsOnly) {
-    const positionKeys: PositionKey[] = [
-      "salinity",
-      "DO01",
-      "DO02",
-      "DO03",
-    ];
-
-    const latestPositions: Record<PositionKey, SensorPosition> = {
-      salinity: emptyPosition(),
-      DO01: emptyPosition(),
-      DO02: emptyPosition(),
-      DO03: emptyPosition(),
-    };
-
-    const latestTimes: Partial<Record<PositionKey, string>> = {};
-
-    // 新しい日時から確認し、センサーごとに最初の有効な位置を採用
-    for (const record of [...body].reverse()) {
-      for (const key of positionKeys) {
-        if (latestTimes[key]) continue;
-
-        const position = record.positions[key];
-
-        if (
-          position.latitude !== null &&
-          position.longitude !== null &&
-          position.latitudeDMS !== null &&
-          position.longitudeDMS !== null
-        ) {
-          latestPositions[key] = position;
-          latestTimes[key] = record.datetime;
-        }
-      }
-
-      if (positionKeys.every((key) => latestTimes[key])) break;
-    }
-
-    const latestDatetime =
-      Object.values(latestTimes)
-        .filter((value): value is string => value !== undefined)
-        .sort()
-        .at(-1) ?? null;
-
-    return response.status(200).json({
-      positions: latestPositions,
-      datetime: latestDatetime,
-      positionDatetimes: latestTimes,
-    });
-  }
-
-  // 既存の呼び出しには従来どおり全データを返す
-  return response.status(200).json(body);
 }

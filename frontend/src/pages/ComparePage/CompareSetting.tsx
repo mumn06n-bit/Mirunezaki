@@ -214,6 +214,7 @@ const usesOxygen = correlationMode
   ? correlationSensors.includes("oxygen")
   : sensorType === "oxygen";
 
+  
   // 設定保存
   const saveSettings = () => {
     // 相関モードでの種類不足のエラーメッセージ
@@ -532,10 +533,7 @@ const usesOxygen = correlationMode
                 <span>日</span>
 
                 {/* 溶存酸素センサー */}
-                {(
-                  (!correlationMode && sensorType === "oxygen") ||
-                  (correlationMode && correlationSensors.includes("oxygen"))
-                ) && (
+                {usesOxygen && (
                     <div className="oxygen-select">
                       <select
                         value={
