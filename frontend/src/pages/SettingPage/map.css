@@ -2,7 +2,7 @@
 .map-page {
   display: flex;
   flex-direction: column;
-  padding-bottom: 30px;
+  padding-bottom: 20%;
   background-color: var(--secondary);
   overflow-y: auto;
 }

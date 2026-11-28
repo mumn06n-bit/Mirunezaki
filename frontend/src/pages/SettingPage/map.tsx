@@ -9,6 +9,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import PageLayout from "@/components/PageLayout";
+import type { HelpStep } from "@/components/HelpOverlay";
+
 import {
   fetchLatestSensorPositions,
   type LatestSensorPositions,
@@ -66,6 +68,28 @@ export default function MapPage() {
     useState<LatestSensorPositions | null>(null);
 
   const [loading, setLoading] = useState(true);
+
+  // ヘルプ内容
+  const helpSteps: HelpStep[] = [
+    {
+      target: "map-area",
+      title: "センサの位置と選択",
+      description:
+        "地図上に各センサの設置位置が表示されます。DO01～DO03のマーカーをタップすると、表示するセンサを選択できます。",
+    },
+    {
+      target: "map-ok",
+      title: "選択の確定",
+      description:
+        "OKボタンを押すと、選択したDOセンサを設定画面に反映します。",
+    },
+    {
+      target: "sensor-location-list",
+      title: "センサの位置情報",
+      description:
+        "各センサの緯度・経度と位置情報の取得日時を確認できます。",
+    },
+  ];
 
   useEffect(() => {
     let ignore = false;
@@ -188,9 +212,10 @@ export default function MapPage() {
   };
 
   return (
-    <PageLayout title="地図" showBackButton={true}>
+    <PageLayout title="地図" showBackButton={true} helpSteps={helpSteps}>
       <div className="map-page">
-        <div className="map-area">
+        {/* 地図・センサマーカー */}
+        <div className="map-area" data-help-target="map-area">
           <MapContainer
             center={[38.350484, 141.4206]}
             zoom={14}
@@ -244,13 +269,15 @@ export default function MapPage() {
           選択中：<strong>{selectedSensor}</strong>
         </div>
 
-        <div className="map-ok-button-area">
+        {/* OKボタン */}
+        <div className="map-ok-button-area" data-help-target="map-ok">
           <button className="map-ok-button" onClick={handleOk}>
             OK
           </button>
         </div>
 
-        <div className="sensor-location-list">
+        {/* センサ位置情報一覧 */}
+        <div className="sensor-location-list" data-help-target="sensor-location-list">
           {(
             ["DO01", "DO02", "DO03", "salinity"] as PositionSensorId[]
           ).map((sensorId) => (
