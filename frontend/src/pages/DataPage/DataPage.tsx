@@ -18,7 +18,8 @@ const times = Array.from({ length: 48 }, (_, i) => {
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 30分以上前に保存された時刻選択は捨てる
 // 30分以内であれば保存した時刻を適用する（これを過ぎたら現在時刻から始める）
-const RESTORE_LIMIT_MS = 10 * 60 * 1000;
+// テスト用に10秒にします
+const RESTORE_LIMIT_MS = 10 * 1000;
 
 const isSavedFresh = () => {
   const savedAt = Number(localStorage.getItem("dataSavedAt"));
