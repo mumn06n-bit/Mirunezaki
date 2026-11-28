@@ -5,12 +5,14 @@ import { Icons } from "@/components/materials";
 type HeaderProps = {
   title: string;
   showBackButton?: boolean;
+  onHelpClick?: () => void;
 };
 
 //ヘッダーのみ定義=>PageLayout.tsxで呼び出し
 export default function Header({
   title,
   showBackButton = false,
+  onHelpClick,
 }: HeaderProps) {
 
   const navigate = useNavigate();
@@ -29,6 +31,15 @@ export default function Header({
       )}
 
       <h1>{title}</h1>
+
+      {/* ヘルプボタン */}
+      <button
+        className="help-button"
+        onClick={onHelpClick}
+        aria-label="ヘルプを表示"
+      >
+        <Icons.CircleHelp size={28} />
+      </button>
 
     </header>
   );

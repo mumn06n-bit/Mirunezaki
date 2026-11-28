@@ -6,7 +6,8 @@ import {
   Settings,//設定画面
   Undo2,//戻るボタン
   RefreshCw,//更新ボタン
-  ArrowDownToLine//ダウンロードボタン
+  ArrowDownToLine,//ダウンロードボタン
+  CircleHelp //ヘルプボタン
 } from "lucide-react";
 
 export const Icons = {
@@ -17,6 +18,6 @@ export const Icons = {
   Settings,
   Undo2,
   RefreshCw,
-  ArrowDownToLine
+  ArrowDownToLine,
+  CircleHelp,
 };
-

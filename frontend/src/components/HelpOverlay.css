@@ -1,0 +1,114 @@
+/* ヘルプ表示全体 */
+.help-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* 吹き出し */
+.help-bubble {
+    position: fixed;
+
+    width: min(280px, calc(100vw - 32px));
+    min-height: 100px;
+    box-sizing: border-box;
+
+    padding: 20px;
+
+    background-color: var(--white);
+    color: var(--text);
+
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+
+    z-index: 100000;
+    cursor: pointer;
+}
+
+/* タイトル */
+.help-bubble h3 {
+    margin: 0 24px 10px 0;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+/* 説明文 */
+.help-bubble p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* 閉じるボタン */
+.help-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+
+    width: 28px;
+    height: 28px;
+    padding: 0;
+
+    border: none;
+    background: transparent;
+
+    color: #666;
+    font-size: 24px;
+    line-height: 1;
+
+    cursor: pointer;
+}
+
+/* 三角形の共通設定 */
+.help-bubble::before {
+    content: "";
+    position: absolute;
+
+    width: 0;
+    height: 0;
+
+    border: 10px solid transparent;
+}
+
+/* 吹き出しが対象の下にある場合 */
+.help-bubble.arrow-top::before {
+    bottom: calc(100% - 1px);
+    left: var(--arrow-offset);
+
+    border-bottom-color: var(--white);
+    transform: translateX(-50%);
+}
+
+/* 吹き出しが対象の上にある場合 */
+.help-bubble.arrow-bottom::before {
+    top: calc(100% - 1px);
+    left: var(--arrow-offset);
+
+    border-top-color: var(--white);
+    transform: translateX(-50%);
+}
+
+/* 吹き出しが対象の右にある場合 */
+.help-bubble.arrow-left::before {
+    right: calc(100% - 1px);
+    top: var(--arrow-offset);
+
+    border-right-color: var(--white);
+    transform: translateY(-50%);
+}
+
+/* 吹き出しが対象の左にある場合 */
+.help-bubble.arrow-right::before {
+    left: calc(100% - 1px);
+    top: var(--arrow-offset);
+
+    border-left-color: var(--white);
+    transform: translateY(-50%);
+}
+
+/* 説明対象が見つからない場合は三角形を表示しない */
+.help-bubble.arrow-none::before {
+    display: none;
+}
