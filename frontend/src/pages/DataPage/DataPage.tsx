@@ -3,10 +3,45 @@ import { Icons } from "@/components/materials";
 import PageLayout from "@/components/PageLayout";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { 
+import type { HelpStep } from "@/components/HelpOverlay";
+import {
   fetchSensorData,
   type SensorRecord,
 } from "@/services/sensorData";
+
+// データページのヘルプ内容
+const helpSteps: HelpStep[] = [
+  {
+    target: "calendar",
+    title: "日付の選択",
+    description: "カレンダーボタンから、確認したい日付を選択できます。",
+  },
+  {
+    target: "datetime",
+    title: "表示日時",
+    description: "選択した日付と時刻のセンサデータを表示します。",
+  },
+  {
+    target: "reload",
+    title: "最新データの取得",
+    description: "現在の日付と最新の時刻に戻して、データを確認できます。",
+  },
+  {
+    target: "download",
+    title: "データのダウンロード",
+    description: "センサデータをCSV形式でダウンロードできます。",
+  },
+  {
+    target: "sensor-values",
+    title: "センサデータ",
+    description: "気温・水温・塩分濃度・溶存酸素の値を確認できます。",
+  },
+  {
+    target: "data-status",
+    title: "データの取得状況",
+    description: "データが古い場合や取得できない場合は、こちらに状況が表示されます。",
+  },
+];
 
 // 時間を30分刻みの配列で定義
 const times = Array.from({ length: 48 }, (_, i) => {
@@ -148,7 +183,6 @@ export default function DataPage() {
       return stateTime;
     }
     const savedTime = localStorage.getItem("dataTime");
-
     if (savedTime && times.includes(savedTime)) {
       return savedTime;
     }
@@ -383,7 +417,7 @@ export default function DataPage() {
   };
 
   return (
-    <PageLayout title="データ">
+    <PageLayout title="データ" helpSteps={helpSteps}>
       <section className="data-page-area">
         {/* 日付と時間 */}
         <section className="date-area">
@@ -392,6 +426,7 @@ export default function DataPage() {
               to="/calendar"
               className="calendar-link"
               state={{ selectedDate, time }}
+              data-help-target="calendar"
             >
               <Icons.CalendarRange size={30} />
             </Link>
@@ -414,19 +449,20 @@ export default function DataPage() {
                 },
               });
             }}
+            data-help-target="reload"
           >
             <Icons.RefreshCw size={24} />
           </button>
 
           <button
             className="download-button"
+            onClick={() => navigate("/download-selection")}
+            data-help-target="download"
           >
             <Icons.ArrowDownToLine size={28} />
           </button>
 
-          
-
-          <div className="date-text-group">
+          <div className="date-text-group" data-help-target="datetime">
             <span className="date-text">
               {formatDate(selectedDate)}
             </span>
@@ -445,87 +481,95 @@ export default function DataPage() {
           </div>
         </section>
 
-        {/* 気温 */}
-        <section className="sensor-data-area">
-          <div
-            className={`data-row ${outsideStatus.stale && !wholePageError && !showFetchError
-              ? "has-stale-message"
-              : ""
-              }`}
-          >
-            <span>気温</span>
-            {renderValue(outsideStatus, "℃")}
-          </div>
-
-          {renderStaleMessage(outsideStatus)}
-
-          {!wholePageError &&
-            !showFetchError &&
-            renderFieldError(outsideStatus)}
-        </section>
-
-        {/* 水温 */}
-        <section className="sensor-data-area">
-          <div
-            className={`data-row ${waterStatus.stale && !wholePageError && !showFetchError
-              ? "has-stale-message"
-              : ""
-              }`}
-          >
-            <span>水温</span>
-            {renderValue(waterStatus, "℃")}
-          </div>
-
-          {renderStaleMessage(waterStatus)}
-
-          {!wholePageError &&
-            !showFetchError &&
-            renderFieldError(waterStatus)}
-        </section>
-
-        {/* 塩分濃度 */}
-        <section className="sensor-data-area">
-          <div
-            className={`data-row ${salinityStatus.stale && !wholePageError && !showFetchError
-              ? "has-stale-message"
-              : ""
-              }`}
-          >
-            <span>塩分濃度</span>
-            {renderValue(salinityStatus, "‰")}
-          </div>
-
-          {renderStaleMessage(salinityStatus)}
-
-          {!wholePageError &&
-            !showFetchError &&
-            renderFieldError(salinityStatus)}
-        </section>
-
-        {/* 溶存酸素 */}
-        <section className="sensor-data-area">
-          <div
-            className={`data-row ${doStatus.stale && !wholePageError && !showFetchError
-              ? "has-stale-message"
-              : ""
-              }`}
-          >
-            <div>
-              <span>
-                溶存酸素{" "}
-                <small className="sensor-name">({doSensor})</small>
-              </span>
+        <div data-help-target="sensor-values">
+          {/* 気温 */}
+          <section className="sensor-data-area">
+            <div
+              className={`data-row ${outsideStatus.stale && !wholePageError && !showFetchError
+                ? "has-stale-message"
+                : ""
+                }`}
+            >
+              <span>気温</span>
+              {renderValue(outsideStatus, "℃")}
             </div>
 
-            {renderValue(doStatus, "mg/L")}
-          </div>
+            {renderStaleMessage(outsideStatus)}
 
-          {renderStaleMessage(doStatus)}
+            {!wholePageError &&
+              !showFetchError &&
+              renderFieldError(outsideStatus)}
+            {/* データ取得状況の説明対象 */}
+            <div
+              className="data-status-help-target"
+              data-help-target="data-status"
+              aria-hidden="true"
+            />
+          </section>
 
-          {!wholePageError &&
-            !showFetchError &&
-            renderFieldError(doStatus)}
-        </section>
+          {/* 水温 */}
+          <section className="sensor-data-area">
+            <div
+              className={`data-row ${waterStatus.stale && !wholePageError && !showFetchError
+                ? "has-stale-message"
+                : ""
+                }`}
+            >
+              <span>水温</span>
+              {renderValue(waterStatus, "℃")}
+            </div>
+
+            {renderStaleMessage(waterStatus)}
+
+            {!wholePageError &&
+              !showFetchError &&
+              renderFieldError(waterStatus)}
+          </section>
+
+          {/* 塩分濃度 */}
+          <section className="sensor-data-area">
+            <div
+              className={`data-row ${salinityStatus.stale && !wholePageError && !showFetchError
+                ? "has-stale-message"
+                : ""
+                }`}
+            >
+              <span>塩分濃度</span>
+              {renderValue(salinityStatus, "‰")}
+            </div>
+
+            {renderStaleMessage(salinityStatus)}
+
+            {!wholePageError &&
+              !showFetchError &&
+              renderFieldError(salinityStatus)}
+          </section>
+
+          {/* 溶存酸素 */}
+          <section className="sensor-data-area">
+            <div
+              className={`data-row ${doStatus.stale && !wholePageError && !showFetchError
+                ? "has-stale-message"
+                : ""
+                }`}
+            >
+              <div>
+                <span>
+                  溶存酸素{" "}
+                  <small className="sensor-name">({doSensor})</small>
+                </span>
+              </div>
+
+              {renderValue(doStatus, "mg/L")}
+            </div>
+
+            {renderStaleMessage(doStatus)}
+
+            {!wholePageError &&
+              !showFetchError &&
+              renderFieldError(doStatus)}
+          </section>
+        </div>
       </section>
 
       {/* 白いデータ一覧部分だけに全体エラーを表示 */}
