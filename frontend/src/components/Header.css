@@ -26,3 +26,19 @@
 
     cursor: pointer;
 }
+
+/* ヘルプボタン */
+.help-button {
+    position: absolute;
+    right: 20px;
+
+    border: none;
+    background: transparent;
+    color: var(--white);
+
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

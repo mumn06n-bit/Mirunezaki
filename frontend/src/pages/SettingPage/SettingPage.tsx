@@ -1,7 +1,32 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
+import type { HelpStep } from "@/components/HelpOverlay";
 import "./SettingPage.css";
+
+// 設定ページのヘルプ内容
+const helpSteps: HelpStep[] = [
+  {
+    target: "do-sensor",
+    title: "DOセンサの選択",
+    description: "使用する溶存酸素センサ（DO01～DO03）を選択できます。",
+  },
+  {
+    target: "map-select",
+    title: "地図選択",
+    description: "地図から溶存酸素センサの位置を選択できます。",
+  },
+  {
+    target: "optimum-values",
+    title: "適正値設定",
+    description: "水温・塩分濃度・溶存酸素の適正値を設定できます。",
+  },
+  {
+    target: "save-setting",
+    title: "設定の保存",
+    description: "設定した内容を保存できます。",
+  },
+];
 
 export default function SettingPage() {
   const navigate = useNavigate();
@@ -19,7 +44,6 @@ export default function SettingPage() {
     const savedTemperature = localStorage.getItem("temperature");
     const savedSalinity = localStorage.getItem("salinity");
     const savedOxygen = localStorage.getItem("oxygen");
-    //const selectedSensor = location.state?.selectedSensor;
     if (savedDosensor) {
       setDoSensor(savedDosensor);
     }
@@ -55,7 +79,7 @@ export default function SettingPage() {
 
 
   return (
-    <PageLayout title="設定" className="setting-page">
+    <PageLayout title="設定" className="setting-page" helpSteps={helpSteps}>
       <div className="setting-page-container">
         {/* DOセンサ */}
         <div className="setting-row">
@@ -63,6 +87,7 @@ export default function SettingPage() {
 
           <div className="do-sensor-setting">
             <select
+              data-help-target="do-sensor"
               value={doSensor}
               onChange={(e) => setDoSensor(e.target.value)}
             >
@@ -73,6 +98,7 @@ export default function SettingPage() {
 
             <button
               className="map-select-button"
+              data-help-target="map-select"
               onClick={() =>
                 navigate("/sensor-map", {
                   state: {
@@ -92,67 +118,67 @@ export default function SettingPage() {
         {/* 適正値設定 */}
         <h2 className="setting-title">適正値設定</h2>
 
-        {/* 水温 */}
-        <div className="setting-row">
-          <label>水温</label>
-          <select
-            value={temperature}
-            onChange={(e) => setTemperature(e.target.value)}
-          >
-            {/* 選択肢数指定 */}
-            {Array.from({ length: 41 }, (_, i) => {
-              // 0.5刻みで 10.0℃から30.0℃までの値を生成(小数点第一位まで表示)
-              const value = (10 + i * 0.5).toFixed(1);
-              return (
-                <option key={value} value={value}>
-                  {value}℃
-                </option>
-              );
-            })}
-          </select>
-        </div>
+        <div data-help-target="optimum-values">
+          {/* 水温 */}
+          <div className="setting-row">
+            <label>水温</label>
+            <select
+              value={temperature}
+              onChange={(e) => setTemperature(e.target.value)}
+            >
+              {/* 選択肢数指定 */}
+              {Array.from({ length: 41 }, (_, i) => {
+                // 0.5刻みで 10.0℃から30.0℃までの値を生成(小数点第一位まで表示)
+                const value = (10 + i * 0.5).toFixed(1);
+                return (
+                  <option key={value} value={value}>
+                    {value}℃
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
-        {/* 塩分濃度 */}
-        <div className="setting-row">
-          <label>塩分濃度</label>
-          <select
-            value={salinity}
-            onChange={(e) => setSalinity(e.target.value)}
-          >
-            {Array.from({ length: 16 }, (_, i) => {
-              const value = 25 + i;
-              return (
-                <option key={value} value={value}>
-                  {value}‰
-                </option>
-              );
-            })}
-          </select>
-        </div>
+          {/* 塩分濃度 */}
+          <div className="setting-row">
+            <label>塩分濃度</label>
+            <select
+              value={salinity}
+              onChange={(e) => setSalinity(e.target.value)}
+            >
+              {Array.from({ length: 16 }, (_, i) => {
+                const value = 25 + i;
+                return (
+                  <option key={value} value={value}>
+                    {value}‰
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
-        {/* 溶存酸素 */}
-        <div className="setting-row">
-          <label>溶存酸素</label>
-          <select
-            value={oxygen}
-            onChange={(e) => setOxygen(e.target.value)}
-          >
-
-
-            {Array.from({ length: 31 }, (_, i) => {
-              // 0.1刻みで 4.0mg/Lから7.0mg/Lまでの値を生成(小数点第一位まで表示)
-              const value = (4.0 + i * 0.1).toFixed(1);
-              return (
-                <option key={value} value={value}>
-                  {value}mg/L
-                </option>
-              );
-            })}
-          </select>
+          {/* 溶存酸素 */}
+          <div className="setting-row">
+            <label>溶存酸素</label>
+            <select
+              value={oxygen}
+              onChange={(e) => setOxygen(e.target.value)}
+            >
+              {Array.from({ length: 31 }, (_, i) => {
+                // 0.1刻みで 4.0mg/Lから7.0mg/Lまでの値を生成(小数点第一位まで表示)
+                const value = (4.0 + i * 0.1).toFixed(1);
+                return (
+                  <option key={value} value={value}>
+                    {value}mg/L
+                  </option>
+                );
+              })}
+            </select>
+          </div>
         </div>
 
         {/* 保存ボタン */}
-        <div className="save-button-area">
+        <div className="save-button-area" data-help-target="save-setting">
           <button
             className="save-button"
             onClick={handleSave}

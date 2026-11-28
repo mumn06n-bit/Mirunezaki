@@ -16,11 +16,17 @@ export default function BottomNavigation() {
   // 地図ページを開いているか判定
   const isMapPage = location.pathname === "/sensor-map";
 
+  // CSVダウンロードページを開いているか判定
+  const isDownloadPage = location.pathname === "/download-selection";
+
   return (
     <nav className="bottom-navigation">
       <NavLink
         to="/data"
-        className={isDataActive ? "nav-item active" : "nav-item"}
+        className={ isDataActive ? "nav-item active" : isDownloadPage
+              ? "nav-item download-page-data"
+              : "nav-item"
+        }
       >
         <Icons.Newspaper size={40} />
       </NavLink>

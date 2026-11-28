@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from "react";
 import {
     fetchSensorData,
@@ -32,7 +31,6 @@ const makeXAxisFormatter = (
 
         if (graphMode === "月") {
             const day = Number(value.slice(8, 10));
-            //const year = value.slice(0, 4);
 
             const isFirstDay = day === 1 || value === firstShown;
             const isNewYear =

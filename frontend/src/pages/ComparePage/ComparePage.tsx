@@ -5,10 +5,35 @@ import PageLayout from "@/components/PageLayout";
 import CompareChart from "./CompareChart";
 import CompareScatter from "./CompareScatter";
 import type { CompareSettings } from "./compareData";
+import type { HelpStep } from "@/components/HelpOverlay";
+
+//ヘルプ内容
+const helpSteps: HelpStep[] = [
+  {
+    target: "compare-type",
+    title: "種類",
+    description: "比較するセンサデータの種類を確認できます。",
+  },
+  {
+    target: "compare-setting",
+    title: "設定",
+    description: "比較するデータの種類や期間などを変更できます。",
+  },
+  {
+    target: "compare-period",
+    title: "比較期間",
+    description: "設定した比較期間を色分けして表示します。",
+  },
+  {
+    target: "compare-chart",
+    title: "比較グラフ",
+    description:
+      "選択した期間のデータを比較できます。通常の比較と相関関係の確認に対応しています。",
+  },
+];
 
 export default function ComparePage() {
-
-const [settings, setSettings] = useState<CompareSettings | null>(null);
+  const [settings, setSettings] = useState<CompareSettings | null>(null);
 
   // 保存された設定を読み込む
   useEffect(() => {
@@ -20,7 +45,6 @@ const [settings, setSettings] = useState<CompareSettings | null>(null);
     } catch {
       localStorage.removeItem("compareSettings");
     }
-
   }, []);
 
   // 種類表示
@@ -74,16 +98,12 @@ const [settings, setSettings] = useState<CompareSettings | null>(null);
   };
   return (
 
-    <PageLayout title="比較">
-
+    <PageLayout title="比較" helpSteps={helpSteps}>
       <section className="compare-header">
-
         {/* 上段 */}
         <div className="compare-top">
-
           {/* 種類 */}
-          <div className="compare-type">
-
+          <div className="compare-type" data-help-target="compare-type">
             <span className="compare-title">
               種類
             </span>
@@ -98,16 +118,15 @@ const [settings, setSettings] = useState<CompareSettings | null>(null);
           <Link
             to="/compare-setting"
             className="setting-button"
+            data-help-target="compare-setting"
           >
             設定
           </Link>
         </div>
 
-        {/* 下段*/}
-        <div className="compare-period">
-
+        {/* 下段 */}
+        <div className="compare-period" data-help-target="compare-period">
           {settings?.periods.map((period) => (
-
             <div
               key={period.id}
               className="period-tag"
@@ -116,20 +135,13 @@ const [settings, setSettings] = useState<CompareSettings | null>(null);
               }}
             >
               {getPeriodText(period)}
-
-
             </div>
-
           ))}
-
         </div>
-
       </section>
 
-
       {/* グラフ表示エリア */}
-      <section className="compare-area">
-
+      <section className="compare-area" data-help-target="compare-chart">
         {/* 相関モード OFF */}
         {settings && !settings.correlationMode && (
           <CompareChart settings={settings} />
@@ -139,11 +151,7 @@ const [settings, setSettings] = useState<CompareSettings | null>(null);
         {settings && settings.correlationMode && (
           <CompareScatter settings={settings} />
         )}
-
       </section>
-
     </PageLayout>
-
   );
-
 }

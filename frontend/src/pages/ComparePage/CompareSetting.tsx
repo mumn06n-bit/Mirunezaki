@@ -1,10 +1,42 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CompareSetting.css";
 import PageLayout from "@/components/PageLayout";
 import { fetchSensorData } from "@/services/sensorData";
 import type { CompareSettings, SensorKey } from "./compareData";
+import type { HelpStep } from "@/components/HelpOverlay";
+
+// 比較設定ページのヘルプ内容
+const helpSteps: HelpStep[] = [
+  {
+    target: "correlation-mode",
+    title: "相関モード",
+    description:
+      "ONにすると、2種類のセンサデータの相関関係を確認する設定に切り替わります。",
+  },
+  {
+    target: "compare-sensor-type",
+    title: "種類の選択",
+    description:
+      "比較したいセンサデータの種類を選択できます。相関モードでは2種類を選択します。",
+  },
+  {
+    target: "compare-graph-period",
+    title: "グラフ期間",
+    description: "比較する期間の単位を日・月・年から選択できます。",
+  },
+  {
+    target: "compare-period-setting",
+    title: "比較期間の設定",
+    description:
+      "比較したい年月日を設定できます。最大5つまで期間を追加でき、不要な期間は削除できます。",
+  },
+  {
+    target: "compare-setting-save",
+    title: "設定の確定",
+    description: "設定内容を保存して、比較ページに戻ります。",
+  },
+];
 
 export default function CompareSettingPage() {
   // ナビゲーション
@@ -89,10 +121,8 @@ export default function CompareSettingPage() {
   const addPeriod = () => {
     // データがある年がなければ追加しない
     if (availableYears.length === 0) return;
-
     // 5件を超えて追加しない
     if (periods.length >= 5) return;
-
     // 使用されていない色を取得
     const usedColors = periods.map((period) => period.color);
 
@@ -258,11 +288,12 @@ const usesOxygen = correlationMode
       title="比較設定"
       showBackButton={true}
       className="compare-setting-page"
+      helpSteps={helpSteps}
     >
       {/* 設定エリア */}
       <section className="compare-setting-area">
         {/* 相関モード */}
-        <div className="setting-row">
+        <div className="setting-row" data-help-target="correlation-mode">
           <label>相関モード</label>
 
           <label className="switch">
@@ -279,7 +310,7 @@ const usesOxygen = correlationMode
 
         {/* 通常モードでの種類選択 */}
         {!correlationMode && (
-          <div className="setting-section">
+          <div className="setting-section" data-help-target="compare-sensor-type">
             <p className="section-title">種類</p>
 
             <div className="radio-grid">
@@ -340,7 +371,7 @@ const usesOxygen = correlationMode
 
         {/* 相関モードでの種類選択 */}
         {correlationMode && (
-          <div className="setting-section">
+          <div className="setting-section" data-help-target="compare-sensor-type">
             <p className="section-title">種類</p>
 
             <div className="radio-grid">
@@ -379,7 +410,7 @@ const usesOxygen = correlationMode
         <hr className="setting-divider" />
 
         {/* グラフ期間 */}
-        <div className="setting-section">
+        <div className="setting-section" data-help-target="compare-graph-period">
           <p className="section-title">グラフ期間</p>
 
           <div className="period-radio">
@@ -433,7 +464,7 @@ const usesOxygen = correlationMode
         <hr className="setting-divider" />
 
         {/* 期間 */}
-        <div className="setting-section">
+        <div className="setting-section" data-help-target="compare-period-setting">
           <p className="section-title">期間</p>
 
           {periods.map((period) => (
@@ -585,7 +616,7 @@ const usesOxygen = correlationMode
         </div>
 
         {/* OKボタン */}
-        <div className="ok-button-area">
+        <div className="ok-button-area" data-help-target="compare-setting-save">
           <button
             className="ok-button"
             onClick={saveSettings}

@@ -29,3 +29,9 @@
 .nav-item.map-page-settings.active {
     color: white;
 }
+
+/* CSVダウンロードページを開いているときだけデータアイコンを白色にする */
+.nav-item.download-page-data,
+.nav-item.download-page-data.active {
+    color: white;
+}
