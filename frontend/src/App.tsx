@@ -5,7 +5,7 @@ import GraphPage from "./pages/GraphPage/GraphPage";
 import ComparePage from "./pages/ComparePage/ComparePage";
 import SettingsPage from "./pages/SettingPage/SettingPage";
 import CalendarPage from "./pages/DataPage/Calendar";//カレンダー
-//import DownloadSelection from "./pages/DataPage/DownloadSelection";//CSVダウンロード選択
+import DownloadSelection from "./pages/DataPage/DownloadSelection";//CSVダウンロード選択
 import CompareSettingPage from "./pages/ComparePage/CompareSetting"
 import MapPage from "./pages/SettingPage/map";//マップ用ページ 
 import BottomNavigation from "./components/BottomNavigation";
@@ -22,7 +22,7 @@ function App() {
         <Route path="/calendar" element={<CalendarPage />} />
 
         {/* CSVダウンロード種類選択画面 */}
-        {/* <Route path="/download-selection" element={<DownloadSelection />} /> */}
+        <Route path="/download-selection" element={<DownloadSelection />} />
 
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/compare" element={<ComparePage />} />
