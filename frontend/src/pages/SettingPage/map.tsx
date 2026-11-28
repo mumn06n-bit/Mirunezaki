@@ -18,6 +18,28 @@ import {
 
 import "./map.css";
 
+// ヘルプ内容
+  const helpSteps: HelpStep[] = [
+    {
+      target: "map-area",
+      title: "センサの位置と選択",
+      description:
+        "地図上に各センサの設置位置が表示されます。DO01～DO03のマーカーをタップすると、表示するセンサを選択できます。",
+    },
+    {
+      target: "map-ok",
+      title: "選択の確定",
+      description:
+        "OKボタンを押すと、選択したDOセンサを設定画面に反映します。",
+    },
+    {
+      target: "sensor-location-list",
+      title: "センサの位置情報",
+      description:
+        "各センサの緯度・経度と位置情報の取得日時を確認できます。",
+    },
+  ];
+
 type PositionSensorId = "DO01" | "DO02" | "DO03" | "salinity";
 
 // センサの識別情報
@@ -68,28 +90,6 @@ export default function MapPage() {
     useState<LatestSensorPositions | null>(null);
 
   const [loading, setLoading] = useState(true);
-
-  // ヘルプ内容
-  const helpSteps: HelpStep[] = [
-    {
-      target: "map-area",
-      title: "センサの位置と選択",
-      description:
-        "地図上に各センサの設置位置が表示されます。DO01～DO03のマーカーをタップすると、表示するセンサを選択できます。",
-    },
-    {
-      target: "map-ok",
-      title: "選択の確定",
-      description:
-        "OKボタンを押すと、選択したDOセンサを設定画面に反映します。",
-    },
-    {
-      target: "sensor-location-list",
-      title: "センサの位置情報",
-      description:
-        "各センサの緯度・経度と位置情報の取得日時を確認できます。",
-    },
-  ];
 
   useEffect(() => {
     let ignore = false;
