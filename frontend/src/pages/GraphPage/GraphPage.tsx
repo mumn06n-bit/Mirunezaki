@@ -1,8 +1,27 @@
-
 import { useState } from "react";
 import PageLayout from "@/components/PageLayout";
 import GraphChart from "./GraphChart";
 import "./GraphPage.css";
+import type { HelpStep } from "@/components/HelpOverlay";
+
+// グラフページのヘルプ内容
+const helpSteps: HelpStep[] = [
+  {
+    target: "graph-type",
+    title: "データの選択",
+    description: "表示したいセンサデータの種類を選択できます。",
+  },
+  {
+    target: "graph-range",
+    title: "表示期間の切り替え",
+    description: "日・月・年から、グラフの表示期間を切り替えられます。",
+  },
+  {
+    target: "graph-chart",
+    title: "グラフの見方",
+    description: "選択したデータの変化をグラフで確認できます。グラフをスクロールすることで任意の日時になります。",
+  },
+];
 
 // データ種類ごとの単位と目標値
 const GRAPH_TYPES: Record<
@@ -58,9 +77,9 @@ export default function GraphPage() {
   };
 
   return (
-    <PageLayout title="グラフ">
+    <PageLayout title="グラフ" helpSteps={helpSteps}>
       <section className="graph-menu">
-        <div className="graph-select-area">
+        <div className="graph-select-area" data-help-target="graph-type">
           <select
             className="graph-select-button"
             value={graphType}
@@ -72,7 +91,7 @@ export default function GraphPage() {
           </select>
         </div>
 
-        <div className="graph-range-area">
+        <div className="graph-range-area" data-help-target="graph-range">
           {GRAPH_MODES.map((mode) => (
             <button
               key={mode}
@@ -87,7 +106,7 @@ export default function GraphPage() {
         </div>
       </section>
 
-      <section className="graph-area">
+      <section className="graph-area" data-help-target="graph-chart">
         <GraphChart
           graphType={graphType}
           graphMode={graphMode}
